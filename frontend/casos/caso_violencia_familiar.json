@@ -1,0 +1,39 @@
+{
+  "id": "caso_001",
+  "titulo": "Violencia familiar y tentativa de feminicidio",
+  "escenarios": [
+    {
+      "nombre": "Comisaría de Familia",
+      "pregunta": "¿Qué acción tomarías primero?",
+      "opciones": [
+        {
+          "texto": "Derivar a atención psicológica",
+          "retroalimentacion": "Correcto, inicia el proceso de apoyo y protección a la víctima."
+        },
+        {
+          "texto": "Ignorar la denuncia",
+          "retroalimentacion": "Incorrecto, esto pone en riesgo a la víctima y es contrario a la normativa."
+        },
+        {
+          "texto": "Contactar a familiares para mediar",
+          "retroalimentacion": "Parcialmente correcto, pero la prioridad es proteger a la víctima inmediatamente."
+        }
+      ]
+    },
+    {
+      "nombre": "Hospital / Urgencias",
+      "pregunta": "La víctima llega con heridas. ¿Cuál es tu primera acción?",
+      "opciones": [
+        {
+          "texto": "Registrar evidencia y evaluar lesiones",
+          "retroalimentacion": "Correcto, esto es necesario para la protección legal y atención médica."
+        },
+        {
+          "texto": "Realizar terapia emocional sin registro médico",
+          "retroalimentacion": "Incorrecto, primero se debe documentar la situación para evidencia legal."
+        }
+      ]
+    }
+  ],
+  "resultado_final": "El estudiante completó el caso aplicando protocolos de intervención y evaluando riesgos correctamente."
+}
