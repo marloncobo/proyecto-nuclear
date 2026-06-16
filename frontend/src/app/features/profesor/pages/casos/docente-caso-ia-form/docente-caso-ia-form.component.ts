@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { AlertMessageComponent } from '../../../../../shared/ui/alert-message/alert-message.component';
 import { LoadingStateComponent } from '../../../../../shared/ui/loading-state/loading-state.component';
 import { PageHeaderComponent } from '../../../../../shared/ui/page-header/page-header.component';
+import { AuthService } from '../../../../../core/services/auth.service';
 import { getErrorBody, getErrorMessage } from '../../../../../core/utils/http-error.util';
 import { CasoDocente } from '../../../../simulacion/models/docente/caso-docente.model';
 import { SimulacionDocenteService } from '../../../../simulacion/services/simulacion-docente.service';
@@ -26,6 +27,7 @@ export class DocenteCasoIaFormComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly simulacionService = inject(SimulacionDocenteService);
+  private readonly authService = inject(AuthService);
   protected readonly minContextCharacters = 120;
   protected readonly minReferenceCharacters = 80;
   protected readonly maxReferences = 5;
@@ -139,7 +141,17 @@ export class DocenteCasoIaFormComponent implements OnInit {
       .subscribe({
         next: (response) => {
           this.saving.set(false);
-          void this.router.navigate(['/profesor/casos', response.casoId]);
+          void this.router.navigate([
+            this.authService.getRoleBasePath(),
+            'casos',
+            response.casoId,
+          ], {
+            state: {
+              successMessage:
+                response.advertencia ??
+                'El caso fue generado correctamente.',
+            },
+          });
         },
         error: (error) => {
           this.saving.set(false);

@@ -3,7 +3,6 @@ import {
   ForbiddenException,
   Injectable,
   ServiceUnavailableException,
-  UnprocessableEntityException,
 } from '@nestjs/common';
 import { Role } from '../common/enums/role.enum';
 import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
@@ -30,8 +29,12 @@ import { CasoPreviewTree } from './types/caso-preview.types';
 export class GeneracionCasosIaService {
   private static readonly MAX_GENERATION_ATTEMPTS = 2;
   private static readonly LOCAL_FALLBACK_MAX_SCENARIOS = 2;
-  private static readonly LOCAL_PARTIAL_DRAFT_WARNING =
-    'La IA local genero un borrador parcial. Revisa y completa el caso antes de publicarlo.';
+  private static readonly PARTIAL_DRAFT_WARNING =
+    'La IA genero un borrador parcial. Revisa y completa el caso antes de publicarlo.';
+  private static readonly INVALID_DRAFT_SAVED_WARNING =
+    'La IA genero un borrador con elementos incompletos. Lo guardamos como borrador para que puedas revisarlo y completarlo antes de publicarlo.';
+  private static readonly FALLBACK_DRAFT_WARNING =
+    'No fue posible obtener una estructura valida desde la IA, pero creamos un borrador base con tu contexto para que puedas continuarlo manualmente.';
 
   constructor(
     private readonly casosService: CasosService,
@@ -103,7 +106,9 @@ export class GeneracionCasosIaService {
         modelo: generationResult.model,
         proveedor: generationResult.provider,
         borradorParcial: true,
-        advertencia: GeneracionCasosIaService.LOCAL_PARTIAL_DRAFT_WARNING,
+        advertencia:
+          generationResult.advertencia ??
+          GeneracionCasosIaService.PARTIAL_DRAFT_WARNING,
       };
     }
 
@@ -121,6 +126,7 @@ export class GeneracionCasosIaService {
       totalEscenarios: fullResult.casoGenerado.escenarios.length,
       modelo: fullResult.model,
       proveedor: fullResult.provider,
+      advertencia: creado.advertencia,
     };
   }
 
@@ -323,6 +329,7 @@ export class GeneracionCasosIaService {
     | (CasoIaGenerationResult & { casoGenerado: CasoGeneradoIa })
     | (CasoIaGenerationResult & {
         borradorParcial: true;
+        advertencia?: string;
         partialCase: {
           titulo: string;
           descripcion: string | null;
@@ -737,10 +744,10 @@ export class GeneracionCasosIaService {
   }
 
   private canPersistPartialDraft(
-    generationResult: CasoIaGenerationResult,
+    generationResult: CasoIaGenerationResult | null,
     rawPayload: unknown,
   ): boolean {
-    if (generationResult.provider !== 'ollama') {
+    if (!generationResult) {
       return false;
     }
 
@@ -752,7 +759,8 @@ export class GeneracionCasosIaService {
     return (
       typeof raw.titulo === 'string' ||
       typeof raw.descripcion === 'string' ||
-      typeof raw.objetivoAprendizaje === 'string'
+      typeof raw.objetivoAprendizaje === 'string' ||
+      Array.isArray(raw.escenarios)
     );
   }
 
@@ -883,6 +891,7 @@ export class GeneracionCasosIaService {
     | (CasoIaGenerationResult & { casoGenerado: CasoGeneradoIa })
     | (CasoIaGenerationResult & {
         borradorParcial: true;
+        advertencia?: string;
         partialCase: {
           titulo: string;
           descripcion: string | null;
@@ -940,23 +949,22 @@ export class GeneracionCasosIaService {
       }
     }
 
-    if (
-      lastGenerationResult?.provider === 'ollama' &&
-      this.canPersistPartialDraft(lastGenerationResult, lastRawPayload)
-    ) {
+    if (this.canPersistPartialDraft(lastGenerationResult, lastRawPayload)) {
       return {
-        ...lastGenerationResult,
+        ...lastGenerationResult!,
         borradorParcial: true,
         partialCase: this.buildPartialDraft(context, lastRawPayload),
       };
     }
 
-    throw new UnprocessableEntityException({
-      message:
-        'La IA genero un borrador invalido y no se guardo. Intenta nuevamente con referencias mas especificas.',
-      code: 'IA_DRAFT_INVALID',
-      errors: this.uniqueErrors(collectedErrors.length > 0 ? collectedErrors : [lastErrorMessage]),
-    });
+    return {
+      rawJson: JSON.stringify({}),
+      provider: 'fallback',
+      model: 'contextual-draft',
+      borradorParcial: true,
+      advertencia: GeneracionCasosIaService.FALLBACK_DRAFT_WARNING,
+      partialCase: this.buildPartialDraft(context, lastRawPayload),
+    };
   }
 
   private validateGeneratedCase(
@@ -1095,10 +1103,15 @@ export class GeneracionCasosIaService {
       this.validateOption(item, index + 1),
     );
 
+    const mayorPuntajeOpcion = opciones.reduce(
+      (max, opcion) => Math.max(max, opcion.puntaje),
+      0,
+    );
+
     return {
       enunciado,
       tipo: 'single_choice',
-      puntajeMaximo,
+      puntajeMaximo: Math.max(puntajeMaximo, mayorPuntajeOpcion),
       opciones,
     };
   }
@@ -1193,7 +1206,7 @@ export class GeneracionCasosIaService {
   private async persistGeneratedCase(
     caso: CasoGeneradoIa,
     currentUser: AuthenticatedUser,
-  ): Promise<{ id: string; titulo: string }> {
+  ): Promise<{ id: string; titulo: string; advertencia?: string }> {
     const createdCase = {
       casoId: '' as string,
       escenarioIds: [] as string[],
@@ -1306,18 +1319,13 @@ export class GeneracionCasosIaService {
         casoCreado.id,
       );
 
-      if (validationErrors.length > 0) {
-        throw new UnprocessableEntityException({
-          message:
-            'La IA genero un borrador invalido y no se guardo. Intenta nuevamente con referencias mas especificas.',
-          code: 'IA_DRAFT_INVALID',
-          errors: this.uniqueErrors(validationErrors),
-        });
-      }
-
       return {
         id: casoCreado.id,
         titulo: casoCreado.titulo,
+        advertencia:
+          validationErrors.length > 0
+            ? GeneracionCasosIaService.INVALID_DRAFT_SAVED_WARNING
+            : undefined,
       };
     } catch (error) {
       await this.rollbackCreatedData(createdCase);

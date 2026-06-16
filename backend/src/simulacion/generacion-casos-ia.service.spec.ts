@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ForbiddenException,
-  UnprocessableEntityException,
 } from '@nestjs/common';
 import { Role } from '../common/enums/role.enum';
 import { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
@@ -347,7 +346,7 @@ describe('GeneracionCasosIaService', () => {
     expect(response.casoId).toBe('caso-2');
   });
 
-  it('devuelve 422 amable cuando la IA no logra producir un borrador valido', async () => {
+  it('guarda un borrador parcial aunque Gemini no logre producir una estructura valida', async () => {
     iaGenerationProvider.generateJson = jest.fn().mockResolvedValue(
       generationPayload(
         JSON.stringify({
@@ -387,18 +386,54 @@ describe('GeneracionCasosIaService', () => {
       ),
     );
 
-    const promise = service.generarCaso(
+    casosService.create = jest
+      .fn()
+      .mockResolvedValue({ id: 'caso-gemini-partial', titulo: 'Caso invalido' } as never);
+
+    const response = await service.generarCaso(
       { casosReferenciaTexto: [referenciaSuficiente], cantidadEscenarios: 2 },
       currentUser,
     );
 
-    await expect(promise).rejects.toThrow(UnprocessableEntityException);
-    await expect(promise).rejects.toMatchObject({
-      response: {
-        code: 'IA_DRAFT_INVALID',
-        errors: ['Cada pregunta debe incluir al menos dos opciones.'],
-      },
+    expect(response).toEqual({
+      casoId: 'caso-gemini-partial',
+      titulo: 'Caso invalido',
+      totalEscenarios: 0,
+      modelo: 'gemini-2.5-flash',
+      proveedor: 'gemini',
+      borradorParcial: true,
+      advertencia:
+        'La IA genero un borrador parcial. Revisa y completa el caso antes de publicarlo.',
     });
+    expect(escenariosService.create).not.toHaveBeenCalled();
+  });
+
+  it('crea un borrador base con el contexto si la IA responde repetidamente sin contenido utilizable', async () => {
+    iaGenerationProvider.generateJson = jest
+      .fn()
+      .mockResolvedValueOnce(generationPayload('{}'))
+      .mockResolvedValueOnce(generationPayload('{}'));
+
+    casosService.create = jest
+      .fn()
+      .mockResolvedValue({ id: 'caso-contextual', titulo: referenciaSuficiente.slice(0, 90) } as never);
+
+    const response = await service.generarCaso(
+      { casosReferenciaTexto: [referenciaSuficiente], cantidadEscenarios: 2 },
+      currentUser,
+    );
+
+    expect(response).toEqual({
+      casoId: 'caso-contextual',
+      titulo: referenciaSuficiente.slice(0, 90),
+      totalEscenarios: 0,
+      modelo: 'contextual-draft',
+      proveedor: 'fallback',
+      borradorParcial: true,
+      advertencia:
+        'No fue posible obtener una estructura valida desde la IA, pero creamos un borrador base con tu contexto para que puedas continuarlo manualmente.',
+    });
+    expect(escenariosService.create).not.toHaveBeenCalled();
   });
 
   it('arma el prompt con referencias mixtas y mapea destinos por orden', async () => {
@@ -615,7 +650,7 @@ describe('GeneracionCasosIaService', () => {
     });
   });
 
-  it('hace rollback y devuelve un mensaje amable si la validacion final falla', async () => {
+  it('conserva el borrador generado aunque la validacion final detecte pendientes', async () => {
     iaGenerationProvider.generateJson = jest.fn().mockResolvedValue(
       generationPayload(
         JSON.stringify({
@@ -685,34 +720,21 @@ describe('GeneracionCasosIaService', () => {
       'El escenario inicial debe tener pregunta y al menos dos opciones.',
     ]);
 
-    const promise = service.generarCaso(
+    const response = await service.generarCaso(
       { casosReferenciaTexto: [referenciaSuficiente], cantidadEscenarios: 2 },
       currentUser,
     );
 
-    await expect(promise).rejects.toThrow(UnprocessableEntityException);
-    await expect(promise).rejects.toMatchObject({
-      response: {
-        code: 'IA_DRAFT_INVALID',
-        errors: ['El escenario inicial debe tener pregunta y al menos dos opciones.'],
-      },
+    expect(response).toEqual({
+      casoId: 'caso-invalid',
+      titulo: 'Caso inconsistente',
+      totalEscenarios: 2,
+      modelo: 'gemini-2.5-flash',
+      proveedor: 'gemini',
+      advertencia:
+        'La IA genero un borrador con elementos incompletos. Lo guardamos como borrador para que puedas revisarlo y completarlo antes de publicarlo.',
     });
-
-    expect(postgrest.remove).toHaveBeenCalledWith('retroalimentaciones', {
-      filters: { id: ['ret-invalid-1', 'ret-invalid-2'] },
-    });
-    expect(postgrest.remove).toHaveBeenCalledWith('opciones_respuesta', {
-      filters: { id: ['op-invalid-1', 'op-invalid-2'] },
-    });
-    expect(postgrest.remove).toHaveBeenCalledWith('preguntas_decision', {
-      filters: { id: ['preg-invalid-1'] },
-    });
-    expect(postgrest.remove).toHaveBeenCalledWith('escenarios', {
-      filters: { id: ['esc-invalid-1', 'esc-invalid-2'] },
-    });
-    expect(postgrest.remove).toHaveBeenCalledWith('casos', {
-      filters: { id: 'caso-invalid' },
-    });
+    expect(postgrest.remove).not.toHaveBeenCalled();
   });
 
   it('devuelve proveedor y modelo efectivos cuando entra el fallback a Ollama', async () => {
@@ -993,6 +1015,93 @@ describe('GeneracionCasosIaService', () => {
     );
   });
 
+  it('ajusta el puntaje maximo de la pregunta cuando una opcion supera el valor generado por la IA', async () => {
+    iaGenerationProvider.generateJson = jest.fn().mockResolvedValue(
+      generationPayload(
+        JSON.stringify({
+          titulo: 'Caso ajuste puntaje',
+          descripcion: 'Descripcion suficiente',
+          objetivoAprendizaje: 'Objetivo suficiente',
+          escenarios: [
+            {
+              orden: 1,
+              titulo: 'Escenario 1',
+              situacionTexto: 'Situacion amplia del escenario uno.',
+              fondoCodigo: 'aula',
+              isFinal: false,
+              pregunta: {
+                enunciado: 'Que deberia hacer el profesional primero?',
+                puntajeMaximo: 3,
+                opciones: [
+                  {
+                    orden: 1,
+                    texto: 'Escuchar y contener',
+                    puntaje: 5,
+                    escenarioDestinoOrden: 2,
+                    retroalimentacion: {
+                      mensaje: 'Buena priorizacion clinica.',
+                      tipo: 'refuerzo',
+                    },
+                  },
+                  {
+                    orden: 2,
+                    texto: 'Cerrar la sesion',
+                    puntaje: 1,
+                    retroalimentacion: {
+                      mensaje: 'No aborda la necesidad inmediata.',
+                      tipo: 'correctiva',
+                    },
+                  },
+                ],
+              },
+            },
+            {
+              orden: 2,
+              titulo: 'Cierre',
+              situacionTexto: 'El caso llega a una fase de cierre y evaluacion.',
+              fondoCodigo: 'oficina_psicologica',
+              isFinal: true,
+              pregunta: null,
+            },
+          ],
+        }),
+      ),
+    );
+
+    casosService.create = jest
+      .fn()
+      .mockResolvedValue({ id: 'caso-ajuste', titulo: 'Caso ajuste puntaje' } as never);
+    escenariosService.create = jest
+      .fn()
+      .mockResolvedValueOnce({ id: 'esc-1' } as never)
+      .mockResolvedValueOnce({ id: 'esc-2' } as never);
+    decisionesService.createPregunta = jest
+      .fn()
+      .mockResolvedValue({ id: 'preg-1' } as never);
+    decisionesService.createOpcion = jest
+      .fn()
+      .mockResolvedValueOnce({ id: 'op-1' } as never)
+      .mockResolvedValueOnce({ id: 'op-2' } as never);
+    decisionesService.updateOpcion = jest.fn().mockResolvedValue({} as never);
+    retroalimentacionesService.create = jest
+      .fn()
+      .mockResolvedValue({ id: 'ret-1' } as never);
+    publicacionService.validateCaseCompletenessById = jest
+      .fn()
+      .mockResolvedValue([]);
+
+    await service.generarCaso(
+      { casosReferenciaTexto: [referenciaSuficiente], cantidadEscenarios: 2 },
+      currentUser,
+    );
+
+    expect(decisionesService.createPregunta).toHaveBeenCalledWith(
+      'esc-1',
+      expect.objectContaining({ puntajeMaximo: 5 }),
+      currentUser,
+    );
+  });
+
   it('guarda un borrador parcial cuando Ollama responde pero no logra una estructura valida', async () => {
     iaGenerationProvider.generateJson = jest
       .fn()
@@ -1037,7 +1146,7 @@ describe('GeneracionCasosIaService', () => {
       proveedor: 'ollama',
       borradorParcial: true,
       advertencia:
-        'La IA local genero un borrador parcial. Revisa y completa el caso antes de publicarlo.',
+        'La IA genero un borrador parcial. Revisa y completa el caso antes de publicarlo.',
     });
     expect(escenariosService.create).not.toHaveBeenCalled();
   });

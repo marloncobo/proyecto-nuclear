@@ -41,7 +41,8 @@ export class DocenteCasoDetailComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
   private readonly simulacionService = inject(SimulacionDocenteService);
-  private readonly authService = inject(AuthService);
+  protected readonly authService = inject(AuthService);
+  protected readonly Role = Role;
 
   protected readonly loading = signal(true);
   protected readonly publishing = signal(false);
@@ -72,6 +73,11 @@ export class DocenteCasoDetailComponent implements OnInit {
     if (!this.casoId) {
       void this.router.navigate(['/profesor/casos']);
       return;
+    }
+    const navigation = this.router.getCurrentNavigation();
+    const successMessage = navigation?.extras.state?.['successMessage'];
+    if (typeof successMessage === 'string' && successMessage.trim().length > 0) {
+      this.successMessage.set(successMessage);
     }
     this.cargarCaso();
   }
