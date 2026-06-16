@@ -7,7 +7,7 @@ const results = [];
 function log(name, ok, detail = '') {
   results.push({ name, ok, detail });
   const mark = ok ? 'OK' : 'FAIL';
-  console.log(`[${mark}] ${name}${detail ? ` — ${detail}` : ''}`);
+  console.log(`[${mark}] ${name}${detail ? ` - ${detail}` : ''}`);
 }
 
 async function api(method, path, { token, body } = {}) {
@@ -19,6 +19,7 @@ async function api(method, path, { token, body } = {}) {
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
+
   const text = await res.text();
   let data = null;
   try {
@@ -26,6 +27,7 @@ async function api(method, path, { token, body } = {}) {
   } catch {
     data = text;
   }
+
   return { status: res.status, data };
 }
 
@@ -33,19 +35,21 @@ async function loginApi(email, password) {
   const { status, data } = await api('POST', '/auth/login', {
     body: { email, password },
   });
+
   if (status !== 200 && status !== 201) {
     throw new Error(`Login API fallo: ${status} ${JSON.stringify(data)}`);
   }
+
   return data;
 }
 
-async function loginUi(page, email, password) {
+async function loginUi(page, email, password, expectedUrlPattern) {
   await page.goto(`${BASE}/login`);
   await page.waitForSelector('#email');
   await page.fill('#email', email);
   await page.fill('#password', password);
   await page.click('button[type="submit"]');
-  await page.waitForURL(/\/grupos/, { timeout: 15000 });
+  await page.waitForURL(expectedUrlPattern, { timeout: 15000 });
 }
 
 async function setupTestUsers() {
@@ -54,7 +58,7 @@ async function setupTestUsers() {
   const profEmail = `prof.fe.${suffix}@test.local`;
   const estEmail = `est.fe.${suffix}@test.local`;
 
-  let r = await api('POST', '/usuarios', {
+  let r = await api('POST', '/auth/register', {
     token: admin.accessToken,
     body: {
       fullName: 'Profesor Frontend',
@@ -63,12 +67,12 @@ async function setupTestUsers() {
       role: 'PROFESOR',
     },
   });
-  if (r.status !== 201 && r.status !== 200) {
+  if (r.status !== 200 && r.status !== 201) {
     throw new Error(`Crear profesor: ${r.status}`);
   }
-  const profesor = r.data;
+  const profesor = r.data.user;
 
-  r = await api('POST', '/usuarios', {
+  r = await api('POST', '/auth/register', {
     token: admin.accessToken,
     body: {
       fullName: 'Estudiante Frontend',
@@ -77,15 +81,21 @@ async function setupTestUsers() {
       role: 'ESTUDIANTE',
     },
   });
-  if (r.status !== 201 && r.status !== 200) {
+  if (r.status !== 200 && r.status !== 201) {
     throw new Error(`Crear estudiante: ${r.status}`);
   }
-  const estudiante = r.data;
+  const estudiante = r.data.user;
 
-  const profLogin = await loginApi(profEmail, 'Profesor123*');
-  const estLogin = await loginApi(estEmail, 'Estudiante123*');
+  return { admin, profesor, estudiante, profEmail, estEmail };
+}
 
-  return { admin, profesor, estudiante, profEmail, estEmail, profLogin, estLogin };
+async function logoutUi(page) {
+  const cerrarSesion = page
+    .locator('button')
+    .filter({ hasText: /Cerrar sesi[oó]n|Salir/i })
+    .first();
+  await cerrarSesion.click();
+  await page.waitForURL(/\/login/, { timeout: 10000 });
 }
 
 async function run() {
@@ -104,128 +114,103 @@ async function run() {
   }
 
   try {
-    // 1. Login ADMIN + navegación
-    await loginUi(page, 'admin@nuclear.local', 'Admin123*');
-    const adminSubtitle = await page.textContent('.page-header__subtitle');
+    await loginUi(page, 'admin@nuclear.local', 'Admin123*', /\/admin\/dashboard/);
+    const adminTitle = await page.locator('h1').first().textContent();
     log(
-      'Login ADMIN y navegación a /grupos',
-      adminSubtitle?.includes('Administración'),
-      adminSubtitle ?? '',
+      'Login ADMIN y dashboard',
+      adminTitle?.includes('Panel de administración'),
+      adminTitle ?? '',
     );
 
-    const crearVisible = await page.locator('a:has-text("Crear grupo")').isVisible();
-    log('ADMIN ve botón Crear grupo', crearVisible);
+    await page.goto(`${BASE}/admin/grupos`);
+    await page.waitForURL(/\/admin\/grupos/);
+    const tituloGrupos = await page.locator('h1').first().textContent();
+    log(
+      'ADMIN llega a grupos',
+      tituloGrupos?.includes('Grupos académicos'),
+      tituloGrupos ?? '',
+    );
 
-    // 2. Crear grupo (formulario)
-    await page.click('a:has-text("Crear grupo")');
-    await page.waitForURL(/\/grupos\/nuevo/);
+    await page.goto(`${BASE}/admin/grupos/nuevo`);
+    await page.waitForURL(/\/admin\/grupos\/nuevo/);
     const nombreGrupo = `Grupo UI ${Date.now()}`;
     await page.fill('#nombre', nombreGrupo);
     await page.fill('#descripcion', 'Descripcion desde E2E');
+    await page.selectOption('#semestre', 'Primer semestre');
     await page.selectOption('#profesorId', users.profesor.id);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/grupos\/[a-f0-9-]+$/i, { timeout: 15000 });
-    log('ADMIN crea grupo (formulario + redirect detalle)', true);
+    await page.waitForURL(/\/admin\/grupos\/[a-f0-9-]+$/i, { timeout: 15000 });
+    log('ADMIN crea grupo y llega al detalle', true);
 
     const grupoUrl = page.url();
-    const grupoId = grupoUrl.split('/').pop();
-
-    // 3. Asignar estudiante (ADMIN multiselect)
-    await page.click('button:has-text("Asignar estudiantes")');
+    await page.click('button:has-text("Asignación múltiple")');
     await page.waitForSelector('#estudianteIds');
-    await page.selectOption('#estudianteIds', [users.estudiante.id]);
-    await page.click('button:has-text("Confirmar asignación")');
-    await page.waitForSelector('table tbody tr', { timeout: 10000 });
-    const rows = await page.locator('table tbody tr').count();
-    log('ADMIN asigna estudiante y ve tabla', rows >= 1, `filas=${rows}`);
+    await page
+      .locator('label.student-picker__item', { hasText: users.estEmail })
+      .locator('input[type="checkbox"]')
+      .check();
+    await page.click('button:has-text("Asignar seleccionados")');
+    await page.waitForSelector('text=Estudiante Frontend', { timeout: 10000 });
+    log('ADMIN asigna estudiante en el detalle', true);
 
-    // 4. Ver estudiantes
-    const estudianteVisible = await page
-      .locator('text=Estudiante Frontend')
-      .isVisible();
-    log('Ver estudiantes asignados en detalle', estudianteVisible);
-
-    // 5. Editar grupo
     await page.click('a:has-text("Editar")');
-    await page.waitForURL(/\/editar/);
-    const nombreEditado = `${nombreGrupo} Editado`;
-    await page.fill('#nombre', nombreEditado);
+    await page.waitForURL(/\/editar$/);
+    await page.fill('#nombre', `${nombreGrupo} Editado`);
     await page.click('button[type="submit"]');
-    await page.waitForURL(new RegExp(`/grupos/${grupoId}$`));
-    const h1 = await page.locator('h1').first().textContent();
-    log('ADMIN edita grupo', h1?.includes('Editado'), h1 ?? '');
+    await page.waitForURL(grupoUrl);
+    const detailTitle = await page.locator('h1').first().textContent();
+    log('ADMIN edita grupo', detailTitle?.includes('Editado'), detailTitle ?? '');
 
-    // Logout via UI
-    await page.click('button:has-text("Salir")');
-    await page.waitForURL(/\/login/);
-    log('Logout y JWT limpiado (redirect login)', page.url().includes('/login'));
+    await logoutUi(page);
+    log('Logout ADMIN', page.url().includes('/login'));
 
-    // 6. Login PROFESOR
-    await loginUi(page, users.profEmail, 'Profesor123*');
-    const profSubtitle = await page.textContent('.page-header__subtitle');
-    log(
-      'Login PROFESOR',
-      profSubtitle?.includes('Tus grupos'),
-      profSubtitle ?? '',
-    );
+    await loginUi(page, users.profEmail, 'Profesor123*', /\/profesor\/dashboard/);
+    const profesorTitle = await page.locator('h1').first().textContent();
+    log('Login PROFESOR', profesorTitle?.includes('Panel docente'), profesorTitle ?? '');
 
-    await page.click('a:has-text("Crear grupo")');
-    await page.waitForURL(/\/grupos\/nuevo/);
+    await page.goto(`${BASE}/profesor/grupos`);
+    await page.waitForURL(/\/profesor\/grupos/);
+    await page.click('a:has-text("Nuevo grupo")');
+    await page.waitForURL(/\/profesor\/grupos\/nuevo/);
     const sinSelectorProfesor = (await page.locator('#profesorId').count()) === 0;
     log('PROFESOR formulario sin selector profesor', sinSelectorProfesor);
 
-    const nombreProf = `Grupo Prof ${Date.now()}`;
-    await page.fill('#nombre', nombreProf);
+    await page.fill('#nombre', `Grupo Profesor ${Date.now()}`);
+    await page.selectOption('#semestre', 'Primer semestre');
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/grupos\/[a-f0-9-]+$/i);
+    await page.waitForURL(/\/profesor\/grupos\/[a-f0-9-]+$/i);
     log('PROFESOR crea su grupo', true);
 
-    await page.click('button:has-text("Salir")');
-    await page.waitForURL(/\/login/);
+    await logoutUi(page);
+    log('Logout PROFESOR', page.url().includes('/login'));
 
-    // 7. Login ESTUDIANTE - ver solo grupos asignados
-    await loginUi(page, users.estEmail, 'Estudiante123*');
-    const estSubtitle = await page.textContent('.page-header__subtitle');
+    await loginUi(page, users.estEmail, 'Estudiante123*', /\/estudiante\/dashboard/);
+    const estudianteTitle = await page.locator('h1').first().textContent();
     log(
       'Login ESTUDIANTE',
-      estSubtitle?.includes('participas'),
-      estSubtitle ?? '',
+      estudianteTitle?.includes('Panel del estudiante'),
+      estudianteTitle ?? '',
     );
 
-    const crearOculto = (await page.locator('a:has-text("Crear grupo")').count()) === 0;
-    log('ESTUDIANTE no ve Crear grupo', crearOculto);
+    const crearGrupoOculto = (await page.locator('a:has-text("Nuevo grupo")').count()) === 0;
+    log('ESTUDIANTE no ve crear grupo', crearGrupoOculto);
 
-    await page.waitForSelector('table tbody tr', { timeout: 10000 });
-    const estRows = await page.locator('table tbody tr').count();
-    log('ESTUDIANTE ve al menos 1 grupo asignado', estRows >= 1, `filas=${estRows}`);
+    const casosAsignadosVisible = await page
+      .getByRole('link', { name: /Casos asignados/i })
+      .isVisible();
+    log('ESTUDIANTE ve acceso a casos asignados', casosAsignadosVisible);
 
-    const editarOculto = (await page.locator('a:has-text("Editar")').count()) === 0;
-    log('ESTUDIANTE no ve Editar en lista', editarOculto);
-
-    await page.click('a:has-text("Ver")');
-    await page.waitForURL(/\/grupos\/[a-f0-9-]+$/i);
-    const assignOculto =
-      (await page.locator('button:has-text("Asignar estudiantes")').count()) === 0;
-    log('ESTUDIANTE detalle sin asignar/remover admin', assignOculto);
-
-    // 8. Loading en login (credenciales inválidas)
-    await page.click('button:has-text("Salir")');
-    await page.waitForURL(/\/login/);
+    await logoutUi(page);
     await page.fill('#email', 'noexiste@test.local');
     await page.fill('#password', 'WrongPass1!');
     await page.click('button[type="submit"]');
-    await page.waitForSelector('.alert-error', { timeout: 10000 });
-    const errText = await page.locator('.alert-error').textContent();
-    log(
-      'Estado error en login (mensaje API)',
-      Boolean(errText?.length),
-      errText?.trim(),
-    );
+    await page.waitForSelector('.login-alert', { timeout: 10000 });
+    const loginError = await page.locator('.login-alert').textContent();
+    log('Login inválido muestra error', Boolean(loginError?.trim()), loginError?.trim() ?? '');
 
-    // JWT: sin token no accede a grupos
-    await page.goto(`${BASE}/grupos`);
+    await page.goto(`${BASE}/admin/grupos`);
     await page.waitForURL(/\/login/, { timeout: 10000 });
-    log('Sin JWT redirige a login', page.url().includes('/login'));
+    log('Sin sesión redirige a login', page.url().includes('/login'));
   } catch (e) {
     log('Prueba E2E interrumpida', false, e.message);
     console.error(e);
@@ -236,11 +221,13 @@ async function run() {
   console.log('\n=== RESUMEN ===');
   const failed = results.filter((r) => !r.ok);
   for (const r of results) {
-    console.log(`${r.ok ? '✓' : '✗'} ${r.name}`);
+    console.log(`${r.ok ? 'OK' : 'FAIL'} ${r.name}`);
   }
+
   if (failed.length) {
     process.exit(1);
   }
+
   console.log('\nTodas las pruebas frontend pasaron.');
 }
 

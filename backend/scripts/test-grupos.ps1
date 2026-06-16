@@ -31,32 +31,35 @@ $suffix = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 
 Test-Step 'ADMIN crea PROFESOR' {
   $script:profEmail = "profesor+$suffix@test.local"
-  $script:profesor = Invoke-RestMethod -Uri "$base/usuarios" -Method Post -Headers (Headers $admin.Token) -ContentType 'application/json' -Body (@{
+  $registroProfesor = Invoke-RestMethod -Uri "$base/auth/register" -Method Post -Headers (Headers $admin.Token) -ContentType 'application/json' -Body (@{
     fullName = 'Profesor Test'
     email = $script:profEmail
     password = 'Profesor123*'
     role = 'PROFESOR'
   } | ConvertTo-Json)
+  $script:profesor = $registroProfesor.user
 }
 
 Test-Step 'ADMIN crea ESTUDIANTE 1' {
   $script:est1Email = "estudiante1+$suffix@test.local"
-  $script:est1 = Invoke-RestMethod -Uri "$base/usuarios" -Method Post -Headers (Headers $admin.Token) -ContentType 'application/json' -Body (@{
+  $registroEst1 = Invoke-RestMethod -Uri "$base/auth/register" -Method Post -Headers (Headers $admin.Token) -ContentType 'application/json' -Body (@{
     fullName = 'Estudiante Uno'
     email = $script:est1Email
     password = 'Estudiante123*'
     role = 'ESTUDIANTE'
   } | ConvertTo-Json)
+  $script:est1 = $registroEst1.user
 }
 
 Test-Step 'ADMIN crea ESTUDIANTE 2' {
   $script:est2Email = "estudiante2+$suffix@test.local"
-  $script:est2 = Invoke-RestMethod -Uri "$base/usuarios" -Method Post -Headers (Headers $admin.Token) -ContentType 'application/json' -Body (@{
+  $registroEst2 = Invoke-RestMethod -Uri "$base/auth/register" -Method Post -Headers (Headers $admin.Token) -ContentType 'application/json' -Body (@{
     fullName = 'Estudiante Dos'
     email = $script:est2Email
     password = 'Estudiante123*'
     role = 'ESTUDIANTE'
   } | ConvertTo-Json)
+  $script:est2 = $registroEst2.user
 }
 
 $profLogin = Login $script:profEmail 'Profesor123*'
@@ -73,11 +76,12 @@ Test-Step 'ADMIN crea grupo' {
   if (-not $script:grupoAdmin.id) { throw 'Sin id de grupo' }
 }
 
-Test-Step 'PROFESOR lista usuarios (catalogo estudiantes)' {
-  $usuarios = Invoke-RestMethod -Uri "$base/usuarios" -Headers (Headers $profLogin.Token)
-  $estudiantes = @($usuarios | Where-Object { $_.role -eq 'ESTUDIANTE' -and $_.isActive })
-  if ($estudiantes.Count -lt 2) {
-    throw "Se esperaban al menos 2 estudiantes activos, hay $($estudiantes.Count)"
+Test-Step 'PROFESOR no puede listar usuarios (403)' {
+  try {
+    Invoke-RestMethod -Uri "$base/usuarios" -Headers (Headers $profLogin.Token) | Out-Null
+    throw 'Debio fallar con 403'
+  } catch {
+    if ($_.Exception.Response.StatusCode.value__ -ne 403) { throw }
   }
 }
 

@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AlertMessageComponent } from '../../../../../shared/ui/alert-message/alert-message.component';
 import { LoadingStateComponent } from '../../../../../shared/ui/loading-state/loading-state.component';
 import { PageHeaderComponent } from '../../../../../shared/ui/page-header/page-header.component';
+import { AuthService } from '../../../../../core/services/auth.service';
 import { getErrorMessage } from '../../../../../core/utils/http-error.util';
 import { SimulacionDocenteService } from '../../../../simulacion/services/simulacion-docente.service';
 
@@ -25,6 +26,7 @@ export class DocenteCasoFormComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly simulacionService = inject(SimulacionDocenteService);
+  private readonly authService = inject(AuthService);
 
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
@@ -75,7 +77,11 @@ export class DocenteCasoFormComponent implements OnInit {
     request$.subscribe({
       next: (caso) => {
         this.saving.set(false);
-        void this.router.navigate(['/profesor/casos', caso.id]);
+        void this.router.navigate([
+          this.authService.getRoleBasePath(),
+          'casos',
+          caso.id,
+        ]);
       },
       error: (error) => {
         this.saving.set(false);

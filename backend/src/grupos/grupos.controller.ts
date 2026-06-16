@@ -40,14 +40,14 @@ export class GruposController {
 
   @Get()
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.PROFESOR)
+  @Roles(Role.ADMIN, Role.PROFESOR, Role.ESTUDIANTE)
   findAll(@CurrentUser() currentUser: AuthenticatedUser) {
     return this.gruposService.findAll(currentUser);
   }
 
   @Get(':id/estudiantes')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.PROFESOR)
+  @Roles(Role.ADMIN, Role.PROFESOR, Role.ESTUDIANTE)
   listStudents(
     @Param('id') id: string,
     @CurrentUser() currentUser: AuthenticatedUser,
@@ -105,7 +105,7 @@ export class GruposController {
 
   @Get(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.PROFESOR)
+  @Roles(Role.ADMIN, Role.PROFESOR, Role.ESTUDIANTE)
   findOne(
     @Param('id') id: string,
     @CurrentUser() currentUser: AuthenticatedUser,

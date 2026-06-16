@@ -8,6 +8,10 @@ interface SeedUser {
   role: 'ADMIN' | 'PROFESOR' | 'ESTUDIANTE';
 }
 
+function resolvePuedeCrearCasos(role: SeedUser['role']): boolean {
+  return role === 'ADMIN' || role === 'PROFESOR';
+}
+
 const DEMO_USERS: SeedUser[] = [
   {
     fullName: 'Administrador General',
@@ -68,7 +72,7 @@ async function main() {
 
   for (const user of DEMO_USERS) {
     const check = await fetch(
-      `${baseUrl}/usuarios?email=eq.${encodeURIComponent(user.email)}&select=id,email&limit=1`,
+      `${baseUrl}/usuarios?email=eq.${encodeURIComponent(user.email)}&select=id,email,role,puedeCrearCasos&limit=1`,
       { headers },
     );
 
@@ -76,9 +80,40 @@ async function main() {
       throw new Error(`No se pudo consultar ${user.email}: ${check.status}`);
     }
 
-    const existing = (await check.json()) as Array<{ id: string }>;
+    const existing = (await check.json()) as Array<{
+      id: string;
+      role: SeedUser['role'];
+      puedeCrearCasos?: boolean;
+    }>;
 
     if (existing.length > 0) {
+      const current = existing[0];
+      const expectedPuedeCrearCasos = resolvePuedeCrearCasos(user.role);
+
+      if (
+        current.role !== user.role ||
+        (current.puedeCrearCasos ?? false) !== expectedPuedeCrearCasos
+      ) {
+        const update = await fetch(
+          `${baseUrl}/usuarios?id=eq.${current.id}`,
+          {
+            method: 'PATCH',
+            headers: { ...headers, Prefer: 'return=representation' },
+            body: JSON.stringify({
+              role: user.role,
+              puedeCrearCasos: expectedPuedeCrearCasos,
+            }),
+          },
+        );
+
+        if (!update.ok) {
+          throw new Error(`No se pudo actualizar ${user.email}: ${update.status}`);
+        }
+
+        console.log(`Actualizado: ${user.email} (${user.role})`);
+        continue;
+      }
+
       console.log(`Ya existe: ${user.email} (${user.role})`);
       continue;
     }
@@ -92,6 +127,7 @@ async function main() {
         email: user.email,
         passwordHash,
         role: user.role,
+        puedeCrearCasos: resolvePuedeCrearCasos(user.role),
       }),
     });
 

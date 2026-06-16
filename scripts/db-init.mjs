@@ -12,8 +12,12 @@ const sqlFiles = [
   'database/persona-3-simulacion.sql',
 
   'database/persona-4-notificaciones-semestre.sql',
+  'database/persona-5-evaluacion-notas.sql',
   'database/persona-5-tiempo-maximo-simulacion.sql',
+  'database/persona-6-reintentos-autorizados.sql',
+  'database/persona-7-multiples-preguntas-escenario.sql',
   'database/persona-9-permisos-docente-casos.sql',
+  'database/persona-9-rubrica-feedback-reportes.sql',
 ];
 
 function run(command, args, options = {}) {
@@ -149,6 +153,45 @@ function puedeCrearCasosColumnExists() {
   return stdout === 't';
 }
 
+function rubricaCriteriosTableExists() {
+  const { ok, stdout } = runPsqlQuery(
+    "SELECT to_regclass('public.rubrica_criterios') IS NOT NULL;",
+  );
+
+  if (!ok) {
+    console.warn('[db-init] No se pudo verificar tabla rubrica_criterios. Aplicando migracion...');
+    return false;
+  }
+
+  return stdout === 't';
+}
+
+function preguntasDecisionOrdenColumnExists() {
+  const { ok, stdout } = runPsqlQuery(
+    "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='preguntas_decision' AND column_name='orden');",
+  );
+
+  if (!ok) {
+    console.warn('[db-init] No se pudo verificar preguntas_decision.orden. Aplicando migracion...');
+    return false;
+  }
+
+  return stdout === 't';
+}
+
+function reintentosAutorizadosTableExists() {
+  const { ok, stdout } = runPsqlQuery(
+    "SELECT to_regclass('public.reintentos_autorizados') IS NOT NULL;",
+  );
+
+  if (!ok) {
+    console.warn('[db-init] No se pudo verificar tabla reintentos_autorizados. Aplicando migracion...');
+    return false;
+  }
+
+  return stdout === 't';
+}
+
 function applySqlFile(file) {
   const sql = readFileSync(join(root, file), 'utf8');
   const apply = spawnSync(
@@ -201,6 +244,24 @@ if (!shouldSeed && !tiempoMaximoCasoColumnExists()) {
 if (!shouldSeed && !puedeCrearCasosColumnExists()) {
   console.log('[db-init] Aplicando migracion de permisos docente para casos...');
   applySqlFile('database/persona-9-permisos-docente-casos.sql');
+  run('docker', ['compose', 'restart', 'postgrest']);
+}
+
+if (!shouldSeed && !preguntasDecisionOrdenColumnExists()) {
+  console.log('[db-init] Aplicando migracion de multiples preguntas por escenario...');
+  applySqlFile('database/persona-7-multiples-preguntas-escenario.sql');
+  run('docker', ['compose', 'restart', 'postgrest']);
+}
+
+if (!shouldSeed && !reintentosAutorizadosTableExists()) {
+  console.log('[db-init] Aplicando migracion de reintentos autorizados...');
+  applySqlFile('database/persona-6-reintentos-autorizados.sql');
+  run('docker', ['compose', 'restart', 'postgrest']);
+}
+
+if (!shouldSeed && !rubricaCriteriosTableExists()) {
+  console.log('[db-init] Aplicando migracion de rubrica y reportes...');
+  applySqlFile('database/persona-9-rubrica-feedback-reportes.sql');
   run('docker', ['compose', 'restart', 'postgrest']);
 }
 

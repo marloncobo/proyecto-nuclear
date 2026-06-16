@@ -15,8 +15,11 @@
             @if (canEditCase()) {
               <a class="siep-btn-primary" [routerLink]="['canvas']">Abrir editor visual</a>
             } @else {
-              <a class="siep-btn-primary" routerLink="/profesor/asignaciones">
-                Asignar a comunidades
+              <a
+                class="siep-btn-primary"
+                [routerLink]="authService.hasRole(Role.ADMIN) ? '/admin/grupos' : '/profesor/asignaciones'"
+              >
+                {{ authService.hasRole(Role.ADMIN) ? 'Ver comunidades' : 'Asignar a comunidades' }}
               </a>
             }
           </div>
@@ -273,9 +276,15 @@
             <button class="siep-btn-secondary" type="button" (click)="cargarEvidencias()">
               Ver evidencias
             </button>
-            <a class="siep-btn-primary" routerLink="/profesor/asignaciones">
-              Asignar a comunidades academicas
-            </a>
+            @if (!authService.hasRole(Role.ADMIN)) {
+              <a class="siep-btn-primary" routerLink="/profesor/asignaciones">
+                Asignar a comunidades academicas
+              </a>
+            } @else {
+              <a class="siep-btn-primary" routerLink="/admin/grupos">
+                Ver comunidades academicas
+              </a>
+            }
           }
           @if (c.estado === 'draft' && canEditCase()) {
             <button

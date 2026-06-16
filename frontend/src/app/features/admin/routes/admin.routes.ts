@@ -56,6 +56,30 @@ export const adminRoutes: Routes = [
       ),
   },
   {
+    path: 'casos/nuevo',
+    canActivate: [roleGuard(Role.ADMIN)],
+    loadComponent: () =>
+      import('../../profesor/pages/casos/docente-caso-form/docente-caso-form.component').then(
+        (m) => m.DocenteCasoFormComponent,
+      ),
+  },
+  {
+    path: 'casos/generar',
+    canActivate: [roleGuard(Role.ADMIN)],
+    loadComponent: () =>
+      import('../../profesor/pages/casos/docente-caso-ia-form/docente-caso-ia-form.component').then(
+        (m) => m.DocenteCasoIaFormComponent,
+      ),
+  },
+  {
+    path: 'casos/:casoId/editar',
+    canActivate: [roleGuard(Role.ADMIN)],
+    loadComponent: () =>
+      import('../../profesor/pages/casos/docente-caso-form/docente-caso-form.component').then(
+        (m) => m.DocenteCasoFormComponent,
+      ),
+  },
+  {
     path: 'casos/:casoId',
     loadComponent: () =>
       import('../../profesor/pages/casos/docente-caso-detail/docente-caso-detail.component').then(
