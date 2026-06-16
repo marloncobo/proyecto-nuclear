@@ -58,6 +58,7 @@ export class DocenteCasoDetailComponent implements OnInit {
   protected readonly deletingEscenarioId = signal<string | null>(null);
   protected readonly editingRubricaId = signal<string | null>(null);
   protected readonly savingRubrica = signal(false);
+  protected readonly actionsDrawerOpen = signal(false);
 
   protected readonly rubricaForm = this.fb.nonNullable.group({
     criterio: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(160)]],
@@ -80,6 +81,14 @@ export class DocenteCasoDetailComponent implements OnInit {
       this.successMessage.set(successMessage);
     }
     this.cargarCaso();
+  }
+
+  toggleActionsDrawer(): void {
+    this.actionsDrawerOpen.update((v) => !v);
+  }
+
+  closeActionsDrawer(): void {
+    this.actionsDrawerOpen.set(false);
   }
 
   cargarCaso() {
