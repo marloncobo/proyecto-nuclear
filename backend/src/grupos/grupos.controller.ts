@@ -6,8 +6,11 @@ import {
   Param,
   Patch,
   Post,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -18,6 +21,7 @@ import { ActualizarGrupoDto } from './dto/actualizar-grupo.dto';
 import { AsignarEstudiantesDto } from './dto/asignar-estudiantes.dto';
 import { CrearGrupoDto } from './dto/crear-grupo.dto';
 import { GruposService } from './grupos.service';
+import type { UploadedImportFile } from './interfaces/uploaded-import-file.interface';
 
 @Controller('grupos')
 @UseGuards(JwtAuthGuard)
@@ -35,16 +39,30 @@ export class GruposController {
   }
 
   @Get()
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.PROFESOR)
   findAll(@CurrentUser() currentUser: AuthenticatedUser) {
     return this.gruposService.findAll(currentUser);
   }
 
   @Get(':id/estudiantes')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.PROFESOR)
   listStudents(
     @Param('id') id: string,
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
     return this.gruposService.listStudents(id, currentUser);
+  }
+
+  @Get(':id/estudiantes-disponibles')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.PROFESOR)
+  listAvailableStudents(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.gruposService.listAvailableStudents(id, currentUser);
   }
 
   @Post(':id/estudiantes')
@@ -62,6 +80,18 @@ export class GruposController {
     );
   }
 
+  @Post(':id/importar-estudiantes')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.PROFESOR)
+  @UseInterceptors(FileInterceptor('file'))
+  importarEstudiantes(
+    @Param('id') id: string,
+    @UploadedFile() file: UploadedImportFile,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.gruposService.importarEstudiantes(id, file, currentUser);
+  }
+
   @Delete(':id/estudiantes/:estudianteId')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.PROFESOR)
@@ -74,6 +104,8 @@ export class GruposController {
   }
 
   @Get(':id')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.PROFESOR)
   findOne(
     @Param('id') id: string,
     @CurrentUser() currentUser: AuthenticatedUser,

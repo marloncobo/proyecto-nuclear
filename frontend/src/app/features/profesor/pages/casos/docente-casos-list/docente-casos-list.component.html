@@ -1,0 +1,124 @@
+﻿<section class="siep-page casos-page">
+  <div class="profesor-page-hero">
+    <p class="profesor-page-hero__kicker" aria-hidden="true">MENTORA · CASOS</p>
+    <app-page-header
+      [title]="pageTitle()"
+      [subtitle]="pageSubtitle()"
+      icon="🧩"
+    >
+      <div actions class="header-actions">
+        @if (!isAdmin()) {
+          <a class="siep-btn-secondary" routerLink="/profesor/casos/biblioteca">Biblioteca</a>
+        }
+        @if (canCreateCases()) {
+          <a class="siep-btn-secondary" routerLink="generar">Generar con IA</a>
+          <a class="siep-btn-primary" routerLink="nuevo">Nuevo caso</a>
+        }
+      </div>
+    </app-page-header>
+  </div>
+
+  <section class="siep-card casos-summary" aria-label="Resumen de casos">
+    <article>
+      <span>Total</span>
+      <strong>{{ casos().length }}</strong>
+      <p>Casos disponibles para editar o publicar.</p>
+    </article>
+    <article>
+      <span>Borrador</span>
+      <strong>{{ totalPorEstado('draft') }}</strong>
+      <p>Listos para seguir construyendo en el editor visual.</p>
+    </article>
+    <article>
+      <span>Publicado</span>
+      <strong>{{ totalPorEstado('published') }}</strong>
+      <p>Simulaciones visibles para estudiantes.</p>
+    </article>
+    <article>
+      <span>Archivado</span>
+      <strong>{{ totalPorEstado('archived') }}</strong>
+      <p>Casos fuera de circulación activa.</p>
+    </article>
+  </section>
+
+  @if (errorMessage()) {
+    <app-alert-message [message]="errorMessage()!" type="error" />
+  }
+  @if (successMessage()) {
+    <app-alert-message [message]="successMessage()!" type="success" />
+  }
+
+  @if (loading()) {
+    <app-loading-state message="Cargando casos..." />
+  } @else if (!canCreateCases() && !isAdmin()) {
+    <app-empty-state
+      title="Perfil aplicador de casos"
+      message="Tu perfil está configurado para aplicar casos institucionales. Puedes usar casos publicados y asignarlos a tus comunidades académicas."
+      icon="🌱"
+      actionLabel="Ir a biblioteca de casos"
+      (actionClick)="irABiblioteca()"
+    />
+  } @else if (casos().length === 0) {
+    <app-empty-state
+      title="Sin casos"
+      message="Aún no has creado casos de simulación. Comienza con tu primera experiencia interactiva."
+      icon="🌱"
+      actionLabel="Crear primer caso"
+      (actionClick)="irANuevoCaso()"
+    />
+  } @else {
+    <ul class="casos-grid">
+      @for (caso of casos(); track caso.id) {
+        <li class="siep-card caso-card">
+          <div class="caso-card__top">
+            <div class="caso-card__badges">
+              <app-status-badge
+                variant="status"
+                [status]="estadoBadge(caso.estado)"
+                [label]="estadoLabel(caso.estado)"
+              />
+              @if (requiereRevision(caso)) {
+                <app-status-badge
+                  variant="status"
+                  status="pending"
+                  label="Requiere revisión"
+                />
+              }
+            </div>
+            <span class="caso-card__date">{{ caso.createdAt | date: 'shortDate' }}</span>
+          </div>
+
+          <h3 class="caso-card__title">{{ caso.titulo }}</h3>
+          <p class="caso-card__desc">{{ caso.descripcion || 'Sin descripción' }}</p>
+          @if (isAdmin()) {
+            <p class="caso-card__desc">
+              Docente creador: {{ caso.autorDocenteNombre || caso.autorDocenteId }}
+            </p>
+          }
+
+          <div class="caso-card__actions">
+            <a class="siep-btn-primary" [routerLink]="[caso.id]">
+              {{ isAdmin() ? 'Ver caso' : 'Abrir caso' }}
+            </a>
+            @if (canCreateCases() && !isAdmin()) {
+              <a class="siep-btn-secondary" [routerLink]="[caso.id, 'canvas']">
+                Abrir editor visual
+              </a>
+            }
+            @if (caso.estado === 'draft' && canCreateCases() && !isAdmin()) {
+              <a class="siep-btn-secondary" [routerLink]="[caso.id, 'editar']">Editar datos</a>
+              <button
+                class="siep-btn-danger"
+                type="button"
+                [disabled]="deletingCasoId() === caso.id"
+                (click)="eliminarBorrador(caso)"
+              >
+                {{ deletingCasoId() === caso.id ? 'Eliminando...' : 'Eliminar borrador' }}
+              </button>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</section>

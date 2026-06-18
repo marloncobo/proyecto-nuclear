@@ -1,0 +1,144 @@
+<section
+  class="siep-page player"
+  [class.player--video-active]="videoPhase() !== 'none'"
+  [class.player--scene-entering]="sceneEntering()"
+>
+  @if (videoPhase() !== 'none') {
+    @for (playbackKey of [videoPlaybackKey()]; track playbackKey) {
+      <app-video-overlay
+        [src]="videoSrc()"
+        [titulo]="videoTitle()"
+        [descripcion]="videoDesc()"
+        (ended)="onVideoEnded()"
+      />
+    }
+  }
+
+  @if (videoPhase() === 'none') {
+    <p class="player__brand" aria-hidden="true">SIEP · Simulación</p>
+
+    @if (errorMessage()) {
+      <app-alert-message [message]="errorMessage()!" type="error" />
+    }
+
+    <header class="player-hero">
+      @if (loading()) {
+        <app-page-header
+          title="Simulación en curso"
+          subtitle="Vive el caso, elige con criterio y aprende de cada decisión."
+          icon="🌿"
+        >
+          <a actions class="siep-btn-secondary player__back" routerLink="/estudiante/casos">Volver</a>
+        </app-page-header>
+      } @else {
+        @if (data(); as state) {
+          <app-page-header
+            [title]="state.escenario?.titulo ?? 'Simulación en curso'"
+            subtitle="Vive el caso, elige con criterio y aprende de cada decisión."
+            icon="🌿"
+          >
+            <a actions class="siep-btn-secondary player__back" routerLink="/estudiante/casos">Volver</a>
+          </app-page-header>
+
+          @if (state.escenario) {
+            <div class="player-hero__progress">
+              <app-simulacion-progress
+                [respondidas]="state.progreso.respondidas"
+                [total]="state.progreso.totalPreguntas"
+              />
+            </div>
+            <p class="player-timer" role="status">Tiempo restante: {{ formatRemaining() }}</p>
+          }
+        }
+      }
+    </header>
+
+    @if (loading()) {
+      <app-loading-state message="Cargando escenario..." />
+    } @else {
+      @if (data(); as state) {
+        @if (state.escenario) {
+          <div class="player-experience">
+            <section class="player-panel player-experience__board" aria-label="Escenario del caso">
+              <app-escenario-viewer [escenario]="state.escenario" />
+            </section>
+
+            <section class="player-panel player-experience__decisions" aria-label="Opciones de respuesta">
+              <app-opciones-respuesta
+                [pregunta]="state.escenario.pregunta"
+                [selectedOpcionId]="selectedOpcion()?.id ?? null"
+                [locked]="sending() || completed()"
+                (select)="seleccionarOpcion($event)"
+              />
+            </section>
+          </div>
+
+          @if (responseNotice()) {
+            <div class="player-notice" role="status">
+              {{ responseNotice() }}
+            </div>
+          }
+
+          <section class="player-question-nav" aria-label="Navegación de preguntas">
+            @for (item of state.navegacion; track item.preguntaId) {
+              <button
+                type="button"
+                class="player-question-nav__item"
+                [class.player-question-nav__item--active]="item.preguntaId === state.escenario.pregunta.id"
+                [class.player-question-nav__item--answered]="item.respondida"
+                [disabled]="completed()"
+                (click)="selectPregunta(item.preguntaId)"
+              >
+                E{{ item.escenarioOrden }} · P{{ item.preguntaOrden }}
+              </button>
+            }
+          </section>
+
+          <section class="player-actions">
+            <button
+              class="siep-btn-secondary"
+              type="button"
+              [disabled]="!canGoPrev() || sending() || completed()"
+              (click)="goToPreviousPregunta()"
+            >
+              Anterior
+            </button>
+            <button
+              class="siep-btn-primary"
+              type="button"
+              [disabled]="!selectedOpcion() || sending() || completed()"
+              (click)="responder()"
+            >
+              {{ sending() ? 'Registrando...' : 'Guardar respuesta' }}
+            </button>
+            <button
+              class="siep-btn-secondary"
+              type="button"
+              [disabled]="!canGoNext() || sending() || completed()"
+              (click)="goToNextPregunta()"
+            >
+              Siguiente
+            </button>
+            @if (completed()) {
+              <button class="siep-btn-primary" type="button" (click)="handleVerResultadoClick()">
+                Ver resultado del recorrido
+              </button>
+            } @else {
+              <button class="siep-btn-danger" type="button" [disabled]="sending()" (click)="finalizarManual()">
+                Finalizar simulación
+              </button>
+            }
+          </section>
+        } @else {
+          <section class="siep-card player-complete">
+            <h2>La sesión no tiene más escenarios pendientes.</h2>
+            <p>Puedes consultar el resultado final para cerrar la simulación.</p>
+            <button class="siep-btn-primary" type="button" (click)="handleVerResultadoClick()">
+              Ver resultado del recorrido
+            </button>
+          </section>
+        }
+      }
+    }
+  }
+</section>

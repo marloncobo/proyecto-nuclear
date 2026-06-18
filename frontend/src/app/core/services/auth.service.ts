@@ -3,9 +3,19 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { AuthResponse, AuthSession, LoginPayload } from '../models/auth.model';
+import {
+  AuthResponse,
+  AuthSession,
+  ChangeTemporaryPasswordPayload,
+  ForgotPasswordPayload,
+  ForgotPasswordResponse,
+  LoginPayload,
+  ResetPasswordPayload,
+  ResetPasswordResponse,
+} from '../models/auth.model';
 import { Role } from '../models/role.enum';
 import { Usuario } from '../models/usuario.model';
+import { isJwtExpired } from '../utils/jwt.util';
 
 const SESSION_KEY = 'nuclear.auth.session';
 
@@ -20,10 +30,37 @@ export class AuthService {
   readonly isAuthenticated = computed(() => Boolean(this.sessionSignal()?.accessToken));
   readonly role = computed(() => this.sessionSignal()?.user.role ?? null);
 
+  readonly mustChangePassword = computed(
+    () => this.sessionSignal()?.user.mustChangePassword ?? false,
+  );
+
   login(payload: LoginPayload) {
     return this.http
       .post<AuthResponse>(`${environment.apiUrl}/auth/login`, payload)
       .pipe(tap((response) => this.persistSession(response)));
+  }
+
+  changeTemporaryPassword(payload: ChangeTemporaryPasswordPayload) {
+    return this.http
+      .post<AuthResponse>(
+        `${environment.apiUrl}/auth/change-temporary-password`,
+        payload,
+      )
+      .pipe(tap((response) => this.persistSession(response)));
+  }
+
+  forgotPassword(payload: ForgotPasswordPayload) {
+    return this.http.post<ForgotPasswordResponse>(
+      `${environment.apiUrl}/auth/forgot-password`,
+      payload,
+    );
+  }
+
+  resetPassword(payload: ResetPasswordPayload) {
+    return this.http.post<ResetPasswordResponse>(
+      `${environment.apiUrl}/auth/reset-password`,
+      payload,
+    );
   }
 
   logout() {
@@ -61,6 +98,34 @@ export class AuthService {
     return this.sessionSignal()?.accessToken ?? null;
   }
 
+  getValidToken(): string | null {
+    const token = this.getToken();
+    if (!token || this.isSessionExpired()) {
+      return null;
+    }
+
+    return token;
+  }
+
+  isSessionExpired(): boolean {
+    const token = this.getToken();
+    if (!token) {
+      return true;
+    }
+
+    return isJwtExpired(token);
+  }
+
+  hasValidSession(): boolean {
+    return this.isAuthenticated() && !this.isSessionExpired();
+  }
+
+  invalidateLocalSession(): void {
+    localStorage.removeItem(SESSION_KEY);
+    this.sessionSignal.set(null);
+    void this.router.navigate(['/login']);
+  }
+
   hasRole(...roles: Role[]): boolean {
     const currentRole = this.role();
     return currentRole ? roles.includes(currentRole) : false;
@@ -70,10 +135,59 @@ export class AuthService {
     return this.hasRole(Role.ADMIN, Role.PROFESOR);
   }
 
+  canCreateCases(): boolean {
+    const user = this.user();
+    if (!user) {
+      return false;
+    }
+    if (user.role === Role.ADMIN) {
+      return true;
+    }
+    if (user.role !== Role.PROFESOR) {
+      return false;
+    }
+    return user.puedeCrearCasos ?? true;
+  }
+
+  getDefaultRouteForRole(role: Role): string {
+    switch (role) {
+      case Role.ADMIN:
+        return '/admin/dashboard';
+      case Role.PROFESOR:
+        return '/profesor/dashboard';
+      case Role.ESTUDIANTE:
+        return '/estudiante/dashboard';
+      default:
+        return '/login';
+    }
+  }
+
+  getRoleBasePath(): string {
+    const role = this.role();
+    if (!role) {
+      return '/login';
+    }
+    switch (role) {
+      case Role.ADMIN:
+        return '/admin';
+      case Role.PROFESOR:
+        return '/profesor';
+      case Role.ESTUDIANTE:
+        return '/estudiante';
+      default:
+        return '/login';
+    }
+  }
+
   private persistSession(response: AuthResponse) {
+    const user: Usuario = {
+      ...response.user,
+      mustChangePassword:
+        response.mustChangePassword ?? response.user.mustChangePassword ?? false,
+    };
     const session: AuthSession = {
       accessToken: response.accessToken,
-      user: response.user,
+      user,
     };
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     this.sessionSignal.set(session);
@@ -87,7 +201,19 @@ export class AuthService {
     }
 
     try {
-      return JSON.parse(raw) as AuthSession;
+      const session = JSON.parse(raw) as AuthSession;
+      if (isJwtExpired(session.accessToken)) {
+        localStorage.removeItem(SESSION_KEY);
+        return null;
+      }
+
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          mustChangePassword: session.user.mustChangePassword ?? false,
+        },
+      };
     } catch {
       localStorage.removeItem(SESSION_KEY);
       return null;

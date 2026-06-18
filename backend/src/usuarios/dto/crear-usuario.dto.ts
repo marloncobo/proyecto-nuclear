@@ -1,5 +1,12 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, IsEnum, IsString, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 import { Role } from '../../common/enums/role.enum';
 
 export class CrearUsuarioDto {
@@ -11,10 +18,15 @@ export class CrearUsuarioDto {
   @IsEmail()
   email: string;
 
+  @IsOptional()
   @IsString()
   @MinLength(8)
-  password: string;
+  password?: string;
 
   @IsEnum(Role)
   role: Role;
+
+  @IsOptional()
+  @IsBoolean()
+  puedeCrearCasos?: boolean;
 }

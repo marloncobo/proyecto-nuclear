@@ -1,0 +1,65 @@
+<section class="siep-page">
+  <div class="profesor-page-hero">
+    <p class="profesor-page-hero__kicker" aria-hidden="true">MENTORA · CASOS</p>
+    <app-page-header
+      [title]="isEdit() ? 'Editar caso' : 'Nuevo caso'"
+      subtitle="Define la información general del caso psicológico."
+      icon="🌿"
+    >
+      <a actions class="siep-btn-secondary" routerLink="..">Volver</a>
+    </app-page-header>
+  </div>
+
+  @if (errorMessage()) {
+    <app-alert-message [message]="errorMessage()!" type="error" />
+  }
+
+  @if (loading()) {
+    <app-loading-state message="Cargando caso..." />
+  } @else {
+    <form class="siep-card caso-form" [formGroup]="form" (ngSubmit)="submit()">
+      @if (!isEdit()) {
+        <p class="case-form__note">
+          Crearás la base del caso. Luego podrás agregar escenarios, decisiones y retroalimentaciones desde el editor.
+        </p>
+      }
+
+      <div class="siep-field">
+        <label for="titulo">Título</label>
+        <input id="titulo" type="text" formControlName="titulo" />
+      </div>
+
+      <div class="siep-field">
+        <label for="descripcion">Descripción</label>
+        <textarea id="descripcion" rows="4" formControlName="descripcion"></textarea>
+      </div>
+
+      <div class="siep-field">
+        <label for="objetivoAprendizaje">Objetivo de aprendizaje</label>
+        <textarea id="objetivoAprendizaje" rows="3" formControlName="objetivoAprendizaje"></textarea>
+      </div>
+
+      <div class="siep-field">
+        <label for="tiempoMaximoMinutos">Tiempo máximo de participación (minutos)</label>
+        <input
+          id="tiempoMaximoMinutos"
+          type="number"
+          min="5"
+          max="240"
+          step="1"
+          formControlName="tiempoMaximoMinutos"
+        />
+        <small class="case-form__help">
+          Define cuánto tiempo tendrá el estudiante para resolver el caso una vez lo inicie.
+        </small>
+      </div>
+
+      <div class="form-actions">
+        <button class="siep-btn-primary" type="submit" [disabled]="saving()">
+          {{ saving() ? 'Guardando...' : 'Guardar' }}
+        </button>
+        <a class="siep-btn-secondary" routerLink="..">Cancelar</a>
+      </div>
+    </form>
+  }
+</section>

@@ -1,0 +1,165 @@
+// ── Tarjeta de cupo (estación académica) ─────────────────
+.cupo {
+  appearance: none;
+  border: none;
+  padding: 0;
+  background: transparent;
+  width: 100%;
+  cursor: default;
+  text-align: center;
+  border-radius: 0.9rem;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &:focus-visible {
+    outline: 2.5px solid #7cb342;
+    outline-offset: 3px;
+    border-radius: 0.9rem;
+  }
+
+  // Cupo interactivo: hover elevación
+  &--interactive {
+    cursor: pointer;
+
+    &:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 20px rgba(16, 42, 29, 0.1);
+    }
+  }
+
+  // Cupo con estudiante
+  &--ocupado {
+    background: rgba(255, 252, 247, 0.95);
+    border: 1.5px solid rgba(205, 232, 181, 0.7);
+    box-shadow: 0 2px 8px rgba(16, 42, 29, 0.06);
+
+    &:hover {
+      border-color: rgba(124, 179, 66, 0.55);
+    }
+  }
+
+  // Cupo libre
+  &--libre {
+    background: rgba(241, 248, 233, 0.45);
+    border: 1.5px dashed rgba(124, 179, 66, 0.35);
+
+    &:hover {
+      background: rgba(241, 248, 233, 0.72);
+      border-color: rgba(124, 179, 66, 0.55);
+      border-style: solid;
+    }
+  }
+
+  // Cupo seleccionado
+  &--selected {
+    border-color: #7cb342 !important;
+    border-style: solid !important;
+    box-shadow:
+      0 0 0 3px rgba(124, 179, 66, 0.2),
+      0 4px 14px rgba(16, 42, 29, 0.1);
+  }
+}
+
+// ── Contenido: cupo ocupado ───────────────────────────────
+.cupo__student {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.85rem 0.55rem 0.75rem;
+  gap: 0.28rem;
+}
+
+.cupo__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--siep-font-title);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #2f5d34;
+  border: 2px solid rgba(124, 179, 66, 0.35);
+  margin-bottom: 0.15rem;
+}
+
+.cupo__name {
+  font-family: var(--siep-font-title);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #2f5d34;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 0.35rem;
+}
+
+.cupo__email {
+  font-size: 0.65rem;
+  color: #5f7368;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 0.35rem;
+}
+
+.cupo__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(205, 232, 181, 0.45);
+  border: 1px solid rgba(124, 179, 66, 0.25);
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #5f7368;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--siep-font-title);
+  margin-top: 0.1rem;
+}
+
+// ── Contenido: cupo libre ─────────────────────────────────
+.cupo__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.38rem;
+  padding: 1.15rem 0.55rem 1rem;
+  min-height: 108px;
+  color: rgba(124, 179, 66, 0.65);
+}
+
+.cupo__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(241, 248, 233, 0.8);
+  color: rgba(124, 179, 66, 0.65);
+  transition: color 0.18s ease, background 0.18s ease;
+
+  .cupo--interactive:hover & {
+    color: #7cb342;
+    background: rgba(205, 232, 181, 0.6);
+  }
+}
+
+.cupo__label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #8fa995;
+  font-family: var(--siep-font-title);
+  letter-spacing: 0.02em;
+
+  .cupo--interactive:hover & {
+    color: #5f7368;
+  }
+}

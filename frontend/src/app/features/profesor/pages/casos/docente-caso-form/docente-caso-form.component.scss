@@ -1,0 +1,34 @@
+.caso-form {
+  max-width: 640px;
+  display: grid;
+  gap: var(--siep-space-1);
+}
+
+.case-form__note {
+  margin: 0 0 var(--siep-space-3);
+  padding: var(--siep-space-3);
+  border-radius: var(--siep-radius-md);
+  border: 1px solid rgba(124, 179, 66, 0.28);
+  background: rgba(241, 248, 233, 0.72);
+  color: var(--siep-forest);
+  line-height: 1.5;
+}
+
+.case-form__help {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--siep-text-soft);
+  line-height: 1.4;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--siep-space-3);
+  margin-top: var(--siep-space-2);
+
+  .siep-btn-secondary {
+    text-decoration: none;
+  }
+}

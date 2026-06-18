@@ -1,0 +1,70 @@
+<section class="siep-page">
+  <div class="profesor-page-hero">
+    <p class="profesor-page-hero__kicker" aria-hidden="true">MENTORA · CASOS</p>
+    <app-page-header
+      [title]="isEdit() ? 'Editar escenario' : 'Nuevo escenario'"
+      subtitle="Configura la escena narrativa. La ambientación visual podrás ajustarla en el editor visual."
+      icon="🌿"
+    >
+      <a actions class="siep-btn-secondary" [routerLink]="volverLink()">Volver al caso</a>
+    </app-page-header>
+  </div>
+
+  @if (errorMessage()) {
+    <app-alert-message [message]="errorMessage()!" type="error" />
+  }
+
+  @if (loading()) {
+    <app-loading-state message="Cargando escenario..." />
+  } @else {
+    <form class="siep-card escenario-form" [formGroup]="form" (ngSubmit)="submit()">
+      <div class="siep-field">
+        <label for="orden">Orden</label>
+        <input id="orden" type="number" min="1" formControlName="orden" />
+        @if (hasError('orden', 'required')) {
+          <p class="field-error">El orden es obligatorio.</p>
+        }
+        @if (hasError('orden', 'min')) {
+          <p class="field-error">El orden debe ser mayor o igual a 1.</p>
+        }
+      </div>
+
+      <div class="siep-field">
+        <label for="titulo">Título</label>
+        <input id="titulo" type="text" formControlName="titulo" />
+        @if (hasError('titulo', 'required')) {
+          <p class="field-error">El título es obligatorio.</p>
+        }
+        @if (hasError('titulo', 'minlength')) {
+          <p class="field-error">El título debe tener al menos 3 caracteres.</p>
+        }
+        @if (hasError('titulo', 'maxlength')) {
+          <p class="field-error">El título no puede superar 120 caracteres.</p>
+        }
+      </div>
+
+      <div class="siep-field">
+        <label for="situacionTexto">Texto de situación</label>
+        <textarea id="situacionTexto" rows="5" formControlName="situacionTexto"></textarea>
+        @if (hasError('situacionTexto', 'required')) {
+          <p class="field-error">El texto de situación es obligatorio.</p>
+        }
+        @if (hasError('situacionTexto', 'minlength')) {
+          <p class="field-error">El texto de situación debe tener al menos 3 caracteres.</p>
+        }
+      </div>
+
+      <label class="checkbox-row">
+        <input type="checkbox" formControlName="isFinal" />
+        Marcar como escenario final
+      </label>
+
+      <div class="form-actions">
+        <button class="siep-btn-primary" type="submit" [disabled]="saving()">
+          {{ saving() ? 'Guardando...' : 'Guardar escenario' }}
+        </button>
+        <a class="siep-btn-secondary" [routerLink]="volverLink()">Cancelar</a>
+      </div>
+    </form>
+  }
+</section>

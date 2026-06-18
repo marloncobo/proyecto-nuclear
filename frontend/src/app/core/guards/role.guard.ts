@@ -8,10 +8,22 @@ export const roleGuard = (...roles: Role[]): CanActivateFn => {
     const authService = inject(AuthService);
     const router = inject(Router);
 
+    if (!authService.hasValidSession()) {
+      if (authService.isAuthenticated() && authService.isSessionExpired()) {
+        authService.invalidateLocalSession();
+      }
+      return router.createUrlTree(['/login']);
+    }
+
     if (authService.hasRole(...roles)) {
       return true;
     }
 
-    return router.createUrlTree(['/grupos']);
+    const role = authService.role();
+    if (role) {
+      return router.parseUrl(authService.getDefaultRouteForRole(role));
+    }
+
+    return router.createUrlTree(['/login']);
   };
 };

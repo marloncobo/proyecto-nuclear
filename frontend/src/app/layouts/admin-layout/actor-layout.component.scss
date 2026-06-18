@@ -1,0 +1,353 @@
+﻿.topbar {
+  position: relative;
+  z-index: 10;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 252, 247, 0.98) 0%,
+    rgba(241, 248, 233, 0.92) 50%,
+    rgba(250, 252, 247, 0.95) 100%
+  );
+  border-bottom: 1px solid var(--siep-border);
+  margin-bottom: var(--siep-space-6);
+  box-shadow: var(--siep-shadow-sm);
+  backdrop-filter: blur(8px);
+}
+
+.topbar--admin {
+  border-bottom-color: rgba(243, 201, 107, 0.55);
+}
+
+.topbar--profesor {
+  border-bottom-color: rgba(124, 179, 66, 0.35);
+}
+
+.topbar--estudiante {
+  border-bottom-color: var(--siep-border);
+}
+
+.topbar__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--siep-space-4);
+  min-height: 68px;
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.brand__text {
+  font-family: var(--siep-font-title);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--siep-forest);
+  letter-spacing: 0.02em;
+}
+
+.nav {
+  display: flex;
+  gap: var(--siep-space-1);
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.nav a {
+  padding: 0.45rem 0.75rem;
+  border-radius: var(--siep-radius-sm);
+  color: var(--siep-text-soft);
+  text-decoration: none;
+  font-weight: 600;
+  font-family: var(--siep-font-title);
+  font-size: 0.85rem;
+  transition:
+    background var(--siep-transition-fast),
+    color var(--siep-transition-fast),
+    transform var(--siep-transition-spring),
+    box-shadow var(--siep-transition-base);
+}
+
+.nav a.active,
+.nav a:hover {
+  color: var(--siep-leaf);
+  background: var(--siep-success-bg);
+  transform: translateY(-1px);
+  box-shadow: 0 0 16px var(--siep-glow-soft);
+  text-decoration: none;
+}
+
+.user-box {
+  display: flex;
+  align-items: center;
+  gap: var(--siep-space-2);
+  background: var(--siep-white);
+  padding: 0.35rem 0.5rem 0.35rem 0.35rem;
+  border-radius: var(--siep-radius-lg);
+  border: 1px solid var(--siep-border);
+}
+
+.user-box__avatar {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--siep-success-bg);
+  color: var(--siep-leaf);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: var(--siep-font-title);
+}
+
+.user-box__info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.user-box__name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: var(--siep-font-title);
+  color: var(--siep-text);
+}
+
+.user-box__role {
+  font-size: 0.68rem;
+  color: var(--siep-leaf);
+  font-weight: 600;
+  font-family: var(--siep-font-title);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.notifications {
+  position: relative;
+}
+
+.notifications__trigger {
+  position: relative;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(124, 179, 66, 0.35);
+  background: rgba(255, 252, 247, 0.9);
+  color: #2f5d34;
+  cursor: pointer;
+  transition:
+    background var(--siep-transition-fast),
+    border-color var(--siep-transition-fast),
+    box-shadow var(--siep-transition-base),
+    transform var(--siep-transition-spring);
+}
+
+.notifications__trigger:hover,
+.notifications__trigger--active {
+  background: #f1f8e9;
+  border-color: rgba(47, 93, 52, 0.35);
+  box-shadow: 0 10px 24px rgba(47, 93, 52, 0.12);
+  transform: translateY(-1px);
+}
+
+.notifications__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.notifications__badge {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.3rem;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 2px solid #fffcf7;
+  background: #f3c96b;
+  color: #102a1d;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.notifications__panel {
+  position: absolute;
+  top: calc(100% + 0.7rem);
+  right: 0;
+  width: min(26rem, calc(100vw - 2rem));
+  max-height: min(34rem, calc(100vh - 7rem));
+  overflow: auto;
+  padding: 1rem;
+  border-radius: var(--siep-radius-lg);
+  border: 1px solid rgba(124, 179, 66, 0.28);
+  background: rgba(255, 252, 247, 0.96);
+  box-shadow: 0 22px 48px rgba(16, 42, 29, 0.18);
+  backdrop-filter: blur(14px);
+  z-index: 40;
+}
+
+.notifications__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.notifications__header h2 {
+  margin: 0;
+  color: #102a1d;
+  font-size: 1rem;
+  font-family: var(--siep-font-title);
+}
+
+.notifications__header-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.notifications__mark-all,
+.notifications__action {
+  border: 0;
+  background: transparent;
+  color: #2f5d34;
+  font-weight: 700;
+  font-size: 0.76rem;
+  font-family: var(--siep-font-title);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.notifications__mark-all:disabled {
+  color: #5f7368;
+  cursor: default;
+  opacity: 0.55;
+}
+
+.notifications__list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.notifications__item {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border-radius: var(--siep-radius-md);
+  border: 1px solid rgba(205, 232, 181, 0.75);
+  background: rgba(255, 252, 247, 0.9);
+}
+
+.notifications__item--unread {
+  background: #f1f8e9;
+  border-color: rgba(124, 179, 66, 0.45);
+}
+
+.notifications__item-main {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.notifications__item-main strong {
+  color: #102a1d;
+  font-size: 0.9rem;
+  font-family: var(--siep-font-title);
+}
+
+.notifications__item-main p {
+  margin: 0;
+  color: #5f7368;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.notifications__item-main time {
+  color: rgba(95, 115, 104, 0.82);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.notifications__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.notifications__empty {
+  margin: 0;
+  padding: 1rem 0.25rem 0.25rem;
+  color: #5f7368;
+  font-size: 0.85rem;
+}
+
+.btn--small {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.78rem;
+}
+
+.main-content {
+  padding-bottom: 2.5rem;
+  min-height: calc(100vh - 90px);
+}
+
+// La animación debe estar en los host elements del router outlet (se recrean en cada nav).
+// ::ng-deep es intencional: permite alcanzar los componentes hijos desde el layout.
+// El <main> en sí es persistente, por eso la animación va en sus hijos directos.
+:host ::ng-deep .admin-main > * {
+  animation: admin-page-enter 240ms ease-out both;
+}
+
+@keyframes admin-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host ::ng-deep .admin-main > * {
+    animation: none;
+  }
+}
+
+.page-header {
+  margin-bottom: var(--siep-space-5);
+}
+
+.page-header h1 {
+  margin: 0 0 var(--siep-space-1);
+}
+
+.page-header__subtitle {
+  margin: 0;
+  color: var(--siep-text-soft);
+}
+
+@media (max-width: 768px) {
+  .nav {
+    order: 3;
+    width: 100%;
+  }
+
+  .notifications__panel {
+    right: -4.5rem;
+  }
+}

@@ -1,8 +1,14 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { RolesGuard } from './guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { Role } from '../common/enums/role.enum';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthService } from './auth.service';
+import { ChangeTemporaryPasswordDto } from './dto/change-temporary-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RegisterDto } from './dto/register.dto';
 import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 
@@ -11,6 +17,8 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
@@ -18,6 +26,25 @@ export class AuthController {
   @Post('login')
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @Post('forgot-password')
+  forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto);
+  }
+
+  @Post('reset-password')
+  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto);
+  }
+
+  @Post('change-temporary-password')
+  @UseGuards(JwtAuthGuard)
+  changeTemporaryPassword(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body() dto: ChangeTemporaryPasswordDto,
+  ) {
+    return this.authService.changeTemporaryPassword(currentUser, dto);
   }
 
   @Post('logout')

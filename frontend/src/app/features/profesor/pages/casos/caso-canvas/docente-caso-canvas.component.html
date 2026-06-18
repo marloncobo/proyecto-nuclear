@@ -1,0 +1,1264 @@
+<section class="canvas-shell">
+  <header class="editor-header">
+    <div class="editor-header__identity">
+      <a class="siep-btn-secondary editor-header__back" [routerLink]="['/profesor/casos', casoId]">Volver</a>
+      @if (editor() && escenarioSeleccionado()) {
+        <div class="editor-header__content">
+          <div class="editor-header__titles">
+            <p class="editor-header__eyebrow">MENTORA · CASOS</p>
+            <div class="editor-header__title-row">
+              <h1>{{ editor()!.titulo }}</h1>
+              <span>/</span>
+              <h2>{{ escenarioSeleccionado()!.titulo }}</h2>
+            </div>
+          </div>
+          <app-status-badge
+            class="editor-header__status"
+            variant="status"
+            [status]="saveStatusVariant()"
+            [label]="saveStatusLabel()"
+          />
+        </div>
+      }
+    </div>
+
+    <div class="editor-header__actions">
+      <button class="siep-btn-primary" type="button" [disabled]="saving()" (click)="saveCurrentLayout()">
+        {{ saving() ? 'Guardando...' : 'Guardar' }}
+      </button>
+      <button class="siep-btn-secondary" type="button" (click)="setWorkspace('student')">Vista previa</button>
+      <button class="siep-btn-primary editor-header__publish" type="button" [disabled]="saving()" (click)="publishCase()">
+        Publicar
+      </button>
+    </div>
+  </header>
+
+  @if (revisionNotice()) {
+    <app-alert-message [message]="revisionNotice()!" type="info" />
+  }
+
+  @if (errorMessage()) {
+    <app-alert-message [message]="errorMessage()!" type="error" />
+  }
+
+  @if (successMessage()) {
+    <app-alert-message [message]="successMessage()!" type="success" />
+  }
+
+  @if (deleteScenarioTarget(); as targetScenario) {
+    <div class="scenario-delete-modal" role="dialog" aria-modal="true" aria-label="Eliminar escena">
+      <div class="scenario-delete-modal__backdrop" (click)="closeDeleteScenarioDialog()"></div>
+      <article class="scenario-delete-modal__card">
+        <p class="panel__eyebrow">Eliminar escena</p>
+        <h3>E{{ targetScenario.orden }} · {{ targetScenario.titulo }}</h3>
+        <p>
+          Esta escena se eliminará del caso junto con sus preguntas y opciones.
+          Esta acción no se puede deshacer.
+        </p>
+        <div class="scenario-delete-modal__actions">
+          <button class="siep-btn-secondary" type="button" (click)="closeDeleteScenarioDialog()">Cancelar</button>
+          <button
+            class="scenario-delete-modal__confirm"
+            type="button"
+            [disabled]="deletingScenario()"
+            (click)="confirmDeleteScenario()"
+          >
+            {{ deletingScenario() ? 'Eliminando...' : 'Eliminar escena' }}
+          </button>
+        </div>
+      </article>
+    </div>
+  }
+
+  @if (loading()) {
+    <app-loading-state message="Cargando editor visual..." />
+  } @else if (editor()) {
+    <nav class="editor-tabs" aria-label="Vistas del editor">
+      <button class="editor-tab" [class.editor-tab--active]="workspace() === 'scene'" type="button" (click)="setWorkspace('scene')">
+        Construir escena
+      </button>
+      <button class="editor-tab" [class.editor-tab--active]="workspace() === 'decisions'" type="button" (click)="setWorkspace('decisions')">
+        Decisiones
+      </button>
+      <button class="editor-tab" [class.editor-tab--active]="workspace() === 'student'" type="button" (click)="setWorkspace('student')">
+        Vista estudiante
+      </button>
+      <button class="editor-tab" [class.editor-tab--active]="workspace() === 'map'" type="button" (click)="setWorkspace('map')">
+        Flujo del caso
+      </button>
+    </nav>
+
+    @if (validationErrors().length > 0) {
+      <section class="editor-banner">
+        <div>
+          <strong>Pendientes antes de publicar</strong>
+          <p>Revisa estos puntos para dejar el caso listo para estudiantes.</p>
+        </div>
+        <ul>
+          @for (item of validationErrors(); track item) {
+            <li>{{ item }}</li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (escenarios().length === 0) {
+      <app-empty-state
+        title="Sin escenarios"
+        message="Este caso aún no tiene escenas para editar."
+        icon="□"
+      />
+    } @else if (escenarioSeleccionado()) {
+      @if (workspace() === 'scene') {
+        <section class="scene-layout">
+          @if (resourcesPanelOpen() || propertiesPanelOpen()) {
+            <button
+              class="scene-drawer-backdrop"
+              type="button"
+              aria-label="Cerrar paneles"
+              (click)="closeAllPanels()"
+            ></button>
+          }
+
+          <aside
+            class="scene-drawer scene-drawer--library"
+            [class.scene-drawer--open]="resourcesPanelOpen()"
+            aria-label="Biblioteca de escena"
+          >
+            <div class="scene-drawer__header">
+              <div>
+                <p class="panel__eyebrow">Editor visual</p>
+                <h3>Biblioteca de escena</h3>
+              </div>
+              <button class="scene-drawer__close" type="button" aria-label="Cerrar biblioteca" (click)="closeResourcesPanel()">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                  <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+
+            <nav class="library-panel-tabs" aria-label="Secciones de la biblioteca">
+              <button
+                class="library-panel-tab"
+                [class.library-panel-tab--active]="libraryPanelTab() === 'sistema'"
+                type="button"
+                (click)="setLibraryPanelTab('sistema')"
+              >Sistema</button>
+              <button
+                class="library-panel-tab"
+                [class.library-panel-tab--active]="libraryPanelTab() === 'docente'"
+                type="button"
+                (click)="setLibraryPanelTab('docente')"
+              >Docente</button>
+              <button
+                class="library-panel-tab"
+                [class.library-panel-tab--active]="libraryPanelTab() === 'ia'"
+                type="button"
+                (click)="setLibraryPanelTab('ia')"
+              >Con IA</button>
+              <button
+                class="library-panel-tab"
+                [class.library-panel-tab--active]="libraryPanelTab() === 'capas'"
+                type="button"
+                (click)="setLibraryPanelTab('capas')"
+              >Capas</button>
+            </nav>
+
+            <div class="scene-drawer__body panel__body">
+
+              @if (libraryPanelTab() === 'sistema') {
+                <span class="panel__helper">Elementos predeterminados del sistema listos para la escena.</span>
+
+                <label class="field">
+                  <span>Buscar</span>
+                  <input
+                    type="search"
+                    [value]="searchTerm()"
+                    placeholder="fondo, paciente, audio..."
+                    (input)="updateSearchTerm($any($event.target).value)"
+                  />
+                </label>
+
+                <div class="library-categories">
+                  @for (category of libraryCategories; track category.id) {
+                    <button
+                      class="library-categories__tab"
+                      [class.library-categories__tab--active]="selectedLibraryCategory() === category.id"
+                      type="button"
+                      (click)="setLibraryCategory(category.id)"
+                    >
+                      {{ category.label }}
+                    </button>
+                  }
+                </div>
+
+                <div class="library-list">
+                  @for (item of library(); track item.id) {
+                    <button
+                      class="library-card"
+                      type="button"
+                      [class.library-card--active]="selectedLibraryItem().id === item.id"
+                      [ngStyle]="libraryCardStyle(item)"
+                      (click)="selectLibraryItem(item.id)"
+                    >
+                      <div class="library-card__preview" [ngStyle]="libraryPreviewStyle(item)">
+                        <span class="library-card__preview-badge">{{ libraryPreviewBadge(item) }}</span>
+                        @if (!itemHasPreviewImage(item)) {
+                          <span class="library-card__preview-mark">{{ item.icono }}</span>
+                        }
+                      </div>
+                      <span class="library-card__icon" [ngStyle]="libraryIconStyle(item)">{{ item.icono }}</span>
+                      <div class="library-card__content">
+                        <strong>{{ item.nombre }}</strong>
+                        <span>{{ item.categoria }} · {{ item.tag }}</span>
+                        <p>{{ item.descripcion }}</p>
+                      </div>
+                      <span class="library-card__add">+</span>
+                    </button>
+                  } @empty {
+                    <div class="panel-empty">
+                      <strong>Sin resultados</strong>
+                      <p>Prueba otra búsqueda o cambia de categoría.</p>
+                    </div>
+                  }
+                </div>
+
+                @if (selectedLibraryItem()) {
+                  <div class="library-footer" [ngStyle]="libraryCardStyle(selectedLibraryItem()!)">
+                    <div class="library-footer__preview" [ngStyle]="libraryPreviewStyle(selectedLibraryItem()!)">
+                      <span class="library-footer__badge">{{ libraryPreviewBadge(selectedLibraryItem()!) }}</span>
+                      @if (!itemHasPreviewImage(selectedLibraryItem()!)) {
+                        <strong>{{ selectedLibraryItem()!.icono }}</strong>
+                      }
+                    </div>
+                    <div class="library-footer__content">
+                      <strong>{{ selectedLibraryItem()!.nombre }}</strong>
+                      <span>{{ selectedLibraryItem()!.tag }} · {{ selectedLibraryItem()!.categoria }}</span>
+                      <p>{{ libraryPreviewTitle(selectedLibraryItem()!) }}</p>
+                      <small>{{ libraryPreviewBody(selectedLibraryItem()!) }}</small>
+                    </div>
+                    <button class="siep-btn-primary" type="button" (click)="addSelectedLibraryItem()">
+                      Agregar
+                    </button>
+                  </div>
+                }
+              }
+
+              @if (libraryPanelTab() === 'docente') {
+                <div class="library-docente-section">
+
+                  <!-- Bloque A: Subir nuevo recurso -->
+                  <div class="docente-upload-block">
+                    <p class="docente-block-title">Subir nuevo recurso</p>
+
+                    @if (docenteErrorMessage()) {
+                      <div class="ai-generator__warning">{{ docenteErrorMessage() }}</div>
+                    }
+                    @if (docenteMessage()) {
+                      <div class="ai-generator__status">{{ docenteMessage() }}</div>
+                    }
+
+                    <label class="field">
+                      <span>Nombre visible en la biblioteca</span>
+                      <input
+                        type="text"
+                        [value]="docenteAssetName()"
+                        placeholder="Ej: Aula de orientación"
+                        (input)="updateDocenteAssetName($any($event.target).value)"
+                      />
+                      <small class="field__hint">Te ayuda a reconocer este recurso cuando lo agregues a la escena o lo veas en capas.</small>
+                    </label>
+
+                    <label class="field">
+                      <span>¿Cómo quieres usar esta imagen?</span>
+                      <select [value]="docenteAssetType()" (change)="updateDocenteAssetType($any($event.target).value)">
+                        @for (type of docenteAssetTypeOptions; track type.id) {
+                          <option [value]="type.id">{{ type.label }}</option>
+                        }
+                      </select>
+                      @if (currentDocenteTypeDescription()) {
+                        <small class="field__hint">{{ currentDocenteTypeDescription() }}</small>
+                      }
+                    </label>
+
+                    <label class="field">
+                      <span>Seleccionar imagen</span>
+                      <input
+                        type="file"
+                        accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                        (change)="updateDocenteAssetFile($event)"
+                      />
+                      <small class="field__hint">PNG, JPG o WEBP · máximo 5 MB.</small>
+                    </label>
+
+                    <button
+                      class="siep-btn-primary ai-generator__action"
+                      type="button"
+                      [disabled]="docenteUploading()"
+                      (click)="uploadDocenteAsset()"
+                    >
+                      {{ docenteUploading() ? 'Subiendo...' : 'Subir recurso' }}
+                    </button>
+                  </div>
+
+                  <!-- Bloque B: Biblioteca del docente -->
+                  <div class="docente-library-block">
+                    <p class="docente-block-title">Recursos del docente</p>
+                    <div class="docente-assets-list">
+                      @for (asset of docenteAssets(); track asset.id) {
+                        <article class="docente-asset-card">
+                          <div class="docente-asset-card__thumb" [style.background-image]="'url(' + asset.url + ')'"></div>
+                          <div class="docente-asset-card__meta">
+                            <strong>{{ asset.nombre }}</strong>
+                            <span>{{ asset.tipo }}</span>
+                          </div>
+                          <button class="siep-btn-secondary" type="button" (click)="addDocenteAssetToScene(asset)">
+                            Agregar a escena
+                          </button>
+                        </article>
+                      } @empty {
+                        <div class="panel-empty">
+                          <strong>Sin recursos subidos</strong>
+                          <p>Sube una imagen en el bloque superior para verla aquí.</p>
+                        </div>
+                      }
+                    </div>
+                  </div>
+
+                </div>
+              }
+
+              @if (libraryPanelTab() === 'ia') {
+                <span class="panel__helper">Genera fondos, personajes y objetos a partir de una descripción.</span>
+
+                @if (aiErrorMessage()) {
+                  <div class="ai-generator__warning">{{ aiErrorMessage() }}</div>
+                }
+
+                <div class="property-note ai-generator__type">
+                  <div>
+                    <strong>Tipo</strong>
+                    <p>{{ aiTypeBadge() }}</p>
+                  </div>
+                  <span>{{ aiVisibleType() === 'background' ? '16:9' : 'Elemento' }}</span>
+                </div>
+
+                <label class="field">
+                  <span>Qué deseas generar</span>
+                  <select [value]="aiVisibleType()" (change)="updateAiVisibleType($any($event.target).value)">
+                    @for (type of aiVisibleTypeOptions; track type.id) {
+                      <option [value]="type.id">{{ type.label }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label class="field">
+                  <span>Descripción</span>
+                  <textarea
+                    rows="4"
+                    [value]="aiDescription()"
+                    [placeholder]="aiVisibleType() === 'background'
+                      ? 'Ej: consultorio sereno con luz natural, plantas suaves y atmósfera de escucha profesional.'
+                      : aiVisibleType() === 'character'
+                        ? 'Ej: niño triste sentado en un salón de clase.'
+                        : aiVisibleType() === 'symbol'
+                          ? 'Ej: burbuja de diálogo vacía.'
+                          : 'Ej: mochila azul en el piso.'"
+                    (input)="updateAiDescription($any($event.target).value)"
+                  ></textarea>
+                </label>
+
+                <label class="field">
+                  <span>Estilo visual</span>
+                  <select [value]="aiStyle()" (change)="updateAiStyle($any($event.target).value)">
+                    @for (style of aiStyleOptions; track style.id) {
+                      <option [value]="style.id">{{ style.label }}</option>
+                    }
+                  </select>
+                </label>
+
+                <button class="siep-btn-primary ai-generator__action" type="button" [disabled]="aiGenerating()" (click)="generateAiAsset()">
+                  {{ aiGenerating() ? 'Generando...' : 'Generar' }}
+                </button>
+
+                @if (aiAssets().length > 0) {
+                  <div class="ai-preview-list">
+                    @for (asset of aiAssets().slice(0, 4); track asset.id) {
+                      <button
+                        class="ai-preview-card"
+                        type="button"
+                        [class.ai-preview-card--active]="latestAiAsset().id === asset.id"
+                        (click)="selectAiAsset(asset.id)"
+                      >
+                        <div class="ai-preview-card__thumb" [style.background-image]="'url(' + asset.publicUrl + ')'"></div>
+                        <div class="ai-preview-card__meta">
+                          <strong>{{ asset.nombre }}</strong>
+                          <span>{{ asset.visibleType || asset.tipo }} · {{ asset.estilo }}</span>
+                        </div>
+                      </button>
+                    }
+                  </div>
+                }
+
+                @if (latestAiAsset(); as asset) {
+                  <div class="ai-preview">
+                    <div class="ai-preview__image" [style.background-image]="'url(' + asset.publicUrl + ')'"></div>
+                    <div class="ai-preview__meta">
+                      <strong>Vista previa lista</strong>
+                      <span>{{ asset.estilo }} · {{ asset.proveedor }}</span>
+                    </div>
+                    <button class="siep-btn-secondary ai-generator__action" type="button" [disabled]="aiApplying()" (click)="applyLatestAiAsset()">
+                      {{ aiApplying() ? 'Aplicando...' : latestAiActionLabel() }}
+                    </button>
+                  </div>
+                }
+              }
+
+              @if (libraryPanelTab() === 'capas') {
+                <span class="panel__helper">Capas de la escena actual, de arriba hacia abajo.</span>
+
+                <div class="layers-list">
+                  @for (element of layersDescending(); track element.id) {
+                    <div
+                      class="layer-item"
+                      [class.layer-item--selected]="selectedElement()?.id === element.id"
+                      [class.layer-item--background]="element.type === 'background'"
+                      (click)="element.type !== 'background' ? selectElement(element.id) : selectScenarioBackground()"
+                    >
+                      <div class="layer-item__info">
+                        <span class="layer-item__label">{{ layerLabel(element) }}</span>
+                        <span class="layer-item__meta">
+                          Nivel {{ element.zIndex }}{{ element.hidden ? ' · Oculto' : '' }}{{ element.locked ? ' · Bloqueado' : '' }}
+                        </span>
+                      </div>
+                      @if (element.type === 'background') {
+                        <span class="layer-item__lock">Base</span>
+                      } @else {
+                        <div class="layer-item__actions" (click)="$event.stopPropagation()">
+                          <button
+                            class="layer-item__btn"
+                            type="button"
+                            title="Traer adelante"
+                            (click)="bringForwardById(element.id)"
+                          >+</button>
+                          <button
+                            class="layer-item__btn"
+                            type="button"
+                            title="Enviar atrás"
+                            [disabled]="element.zIndex <= 1"
+                            (click)="sendBackwardById(element.id)"
+                          >−</button>
+                        </div>
+                      }
+                    </div>
+                  } @empty {
+                    <div class="panel-empty">
+                      <strong>Escena vacía</strong>
+                      <p>Agrega elementos desde Sistema o Con IA.</p>
+                    </div>
+                  }
+                </div>
+              }
+
+            </div>
+          </aside>
+
+          <main class="scene-workspace">
+            <div class="scene-workspace__head">
+              <div class="stage-head">
+                <div>
+                  <p class="panel__eyebrow">Escena actual</p>
+                  <h3>{{ escenarioSeleccionado()!.orden }}. {{ escenarioSeleccionado()!.titulo }}</h3>
+                </div>
+                <div class="stage-head__meta">
+                  <app-status-badge
+                    variant="status"
+                    [status]="saveStatusVariant()"
+                    [label]="saveStatusLabel()"
+                  />
+                  <button class="stage-head__secondary" type="button" [disabled]="duplicating()" (click)="duplicateCurrentScenario()">
+                    {{ duplicating() ? 'Duplicando...' : 'Duplicar escena' }}
+                  </button>
+                  <button
+                    class="stage-head__danger"
+                    type="button"
+                    [disabled]="!canDeleteScenario() || deletingScenario()"
+                    [title]="deleteScenarioBlockedReason() || 'Eliminar escena actual'"
+                    (click)="openDeleteScenarioDialog(escenarioSeleccionado()!.id)"
+                  >
+                    Eliminar escena
+                  </button>
+                </div>
+              </div>
+              @if (deleteScenarioBlockedReason(); as reason) {
+                <p class="stage-head__helper">{{ reason }}</p>
+              }
+            </div>
+
+            <div class="canvas-stage">
+              <div class="canvas-floating-toolbar" role="toolbar" aria-label="Herramientas del canvas">
+                <button
+                  class="canvas-floating-toolbar__btn"
+                  [class.canvas-floating-toolbar__btn--active]="resourcesPanelOpen()"
+                  type="button"
+                  (click)="toggleResourcesPanel()"
+                >
+                  Agregar recursos
+                </button>
+                <button
+                  class="canvas-floating-toolbar__btn"
+                  [class.canvas-floating-toolbar__btn--active]="propertiesPanelOpen()"
+                  [class.canvas-floating-toolbar__btn--highlight]="selectedElement()"
+                  type="button"
+                  (click)="togglePropertiesPanel()"
+                >
+                  Propiedades
+                </button>
+                <span class="canvas-floating-toolbar__divider" aria-hidden="true"></span>
+                <button
+                  class="canvas-floating-toolbar__btn canvas-floating-toolbar__btn--icon"
+                  type="button"
+                  [disabled]="!canUndoScene()"
+                  title="Deshacer (Ctrl+Z)"
+                  (click)="undoSceneChange()"
+                >
+                  Deshacer
+                </button>
+                <button
+                  class="canvas-floating-toolbar__btn canvas-floating-toolbar__btn--icon"
+                  type="button"
+                  [disabled]="!canRedoScene()"
+                  title="Rehacer (Ctrl+Y)"
+                  (click)="redoSceneChange()"
+                >
+                  Rehacer
+                </button>
+                <span class="canvas-floating-toolbar__divider" aria-hidden="true"></span>
+                <button class="canvas-floating-toolbar__btn canvas-floating-toolbar__btn--icon" type="button" (click)="fitSceneToViewport()">
+                  Ajustar vista
+                </button>
+                <button class="canvas-floating-toolbar__btn canvas-floating-toolbar__btn--icon" type="button" (click)="zoomOut()">−</button>
+                <button class="canvas-floating-toolbar__btn canvas-floating-toolbar__btn--value" type="button" (click)="resetZoom()">
+                  {{ zoomPercentLabel() }}
+                </button>
+                <button class="canvas-floating-toolbar__btn canvas-floating-toolbar__btn--icon" type="button" (click)="zoomIn()">+</button>
+                <span class="canvas-floating-toolbar__divider" aria-hidden="true"></span>
+                <button class="canvas-floating-toolbar__btn" type="button" (click)="setWorkspace('student')">
+                  Vista estudiante
+                </button>
+              </div>
+
+              <div class="scene-viewport" #sceneViewport>
+                <div
+                  class="scene-viewport__inner"
+                  [style.width.px]="sceneBaseWidth * zoomLevel() + 48"
+                  [style.height.px]="sceneBaseHeight * zoomLevel() + 48"
+                >
+                  <article
+                    class="scene-stage scene-stage--scaled"
+                    [style.width.px]="sceneBaseWidth"
+                    [style.height.px]="sceneBaseHeight"
+                    [style.transform]="'scale(' + zoomLevel() + ')'"
+                    [ngStyle]="canvasBackgroundStyle()"
+                    (click)="selectScenarioBackground()"
+                  >
+                    <div class="scene-stage__grid"></div>
+
+                    @if (selectedElement()) {
+                      <div class="floating-toolbar" (click)="$event.stopPropagation()">
+                        <button type="button" (click)="duplicateSelectedElement()">Duplicar</button>
+                        <button type="button" (click)="bringForward()">Traer al frente</button>
+                        <button type="button" (click)="sendBackward()">Enviar atras</button>
+                        <button type="button" class="floating-toolbar__danger" (click)="deleteSelectedElement()">Eliminar</button>
+                      </div>
+                    }
+
+                    @for (element of orderedElements(); track element.id) {
+                      @if (!element.hidden && element.type !== 'background') {
+                        @if (element.type === 'character') {
+                          <div
+                            class="scene-persona"
+                            [class.scene-persona--selected]="selectedElement()?.id === element.id"
+                            [ngStyle]="stageElementStyle(element)"
+                            (pointerdown)="startDrag($event, element.id)"
+                            (click)="$event.stopPropagation(); selectElement(element.id)"
+                          >
+                            @if (contentText(element, 'dialogo')) {
+                              <div class="scene-persona__bubble" [ngStyle]="characterBubbleStyle(element)">
+                                {{ contentText(element, 'dialogo') }}
+                              </div>
+                            }
+                            <div class="scene-persona__avatar" [ngStyle]="characterAvatarStyle(element)">
+                              <span>{{ characterInitials(element) }}</span>
+                            </div>
+                            <div class="scene-persona__label">
+                              <strong>{{ contentLabel(element, 'nombre') || 'Personaje' }}</strong>
+                              <span>{{ contentLabel(element, 'rol') || 'Rol' }}</span>
+                              <small>{{ contentLabel(element, 'estadoEmocional') || contentLabel(element, 'expresion') }}</small>
+                            </div>
+                          </div>
+                        } @else if (element.type === 'question') {
+                          <div
+                            class="scene-question"
+                            [class.scene-question--selected]="selectedElement()?.id === element.id"
+                            [ngStyle]="combinedElementStyle(element)"
+                            (pointerdown)="startDrag($event, element.id)"
+                            (click)="$event.stopPropagation(); selectElement(element.id)"
+                          >
+                        <header>
+                          <span class="scene-question__tag">Pregunta</span>
+                          <small>{{ getQuestionElementSummary() }}</small>
+                        </header>
+                        <h4>{{ contentLabel(element, 'enunciado') || escenarioSeleccionado()!.pregunta?.enunciado }}</h4>
+                        @if (questionSupportText(element)) {
+                          <p class="scene-question__support">{{ questionSupportText(element) }}</p>
+                        }
+                      </div>
+                    } @else if (element.type === 'image') {
+                      <div
+                        class="scene-image"
+                        [class.scene-image--selected]="selectedElement()?.id === element.id"
+                        [ngStyle]="stageElementStyle(element)"
+                        (pointerdown)="startDrag($event, element.id)"
+                        (click)="$event.stopPropagation(); selectElement(element.id)"
+                      >
+                        <img
+                          [src]="elementImageUrl(element)"
+                          [alt]="contentLabel(element, 'nombre') || elementAiType(element) || 'Elemento IA'"
+                          [style.object-fit]="elementObjectFit(element)"
+                        />
+                      </div>
+                    } @else if (isTextBubble(element)) {
+                      <div
+                        class="canvas-text-bubble scene-note scene-note--nube"
+                        [class.scene-note--selected]="selectedElement()?.id === element.id"
+                        [ngStyle]="combinedElementStyle(element)"
+                        (pointerdown)="startDrag($event, element.id)"
+                        (click)="$event.stopPropagation(); selectElement(element.id)"
+                      >
+                        <span class="scene-note__tag">{{ noteTypeLabel(element) }}</span>
+                        <p class="canvas-text-bubble__body">{{ textBubbleBody(element) }}</p>
+                      </div>
+                    } @else {
+                      <div
+                        class="scene-note"
+                            [class.scene-note--selected]="selectedElement()?.id === element.id"
+                            [ngStyle]="combinedElementStyle(element)"
+                            (pointerdown)="startDrag($event, element.id)"
+                            (click)="$event.stopPropagation(); selectElement(element.id)"
+                          >
+                            <span class="scene-note__tag">{{ noteTypeLabel(element) }}</span>
+                            <strong>{{ noteTitle(element) }}</strong>
+                            <p>{{ noteBody(element) }}</p>
+                          </div>
+                        }
+                      }
+                    }
+                  </article>
+                </div>
+              </div>
+            </div>
+          </main>
+
+          <aside
+            class="scene-drawer scene-drawer--properties"
+            [class.scene-drawer--open]="propertiesPanelOpen()"
+            aria-label="Propiedades del elemento"
+          >
+            <div class="scene-drawer__header">
+              <div>
+                <p class="panel__eyebrow">Propiedades</p>
+                <h3>Panel contextual</h3>
+              </div>
+              <button class="scene-drawer__close" type="button" aria-label="Cerrar propiedades" (click)="closePropertiesPanel()">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                  <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+
+            <div class="scene-drawer__body panel__body">
+              <span class="panel__helper">Edita solo lo que está seleccionado.</span>
+
+              @if (selectedElement(); as element) {
+                <div class="accordion">
+                  @for (section of propertySections; track section.id) {
+                    <section class="accordion__section" [class.accordion__section--open]="isSectionOpen(section.id)">
+                      <button class="accordion__toggle" type="button" (click)="openSection(section.id)">
+                        <span>{{ section.label }}</span>
+                        <svg class="accordion__chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                          <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                      </button>
+
+                      @if (isSectionOpen(section.id)) {
+                        <div class="accordion__body">
+                          @if (section.id === 'general') {
+                            <div class="property-list">
+                              <div><span>Tipo</span><strong>{{ element.type }}</strong></div>
+                              <div><span>Visible</span><strong>{{ element.hidden ? 'Oculto' : 'Visible' }}</strong></div>
+                              <div><span>Capa</span><strong>{{ element.zIndex }}</strong></div>
+                            </div>
+                          }
+
+                          @if (section.id === 'appearance') {
+                            <label class="field">
+                              <span>Rotación</span>
+                              <input type="range" min="-180" max="180" [value]="element.rotation" (input)="updateSelectedRotation($any($event.target).value)" />
+                            </label>
+                            <button class="siep-btn-secondary property-action" type="button" (click)="toggleSelectedHidden()">
+                              {{ element.hidden ? 'Mostrar elemento' : 'Ocultar elemento' }}
+                            </button>
+                          }
+
+                          @if (section.id === 'layout') {
+                            <label class="field">
+                              <span>Posición horizontal</span>
+                              <input type="range" min="-20" max="120" [value]="element.position.x" (input)="updateSelectedPosition('x', $any($event.target).value)" />
+                            </label>
+                            <label class="field">
+                              <span>Posición vertical</span>
+                              <input type="range" min="-20" max="120" [value]="element.position.y" (input)="updateSelectedPosition('y', $any($event.target).value)" />
+                            </label>
+                            <label class="field">
+                              <span>Ancho</span>
+                              <input type="range" min="40" max="600" [value]="element.size.width" (input)="updateSelectedSize('width', $any($event.target).value)" />
+                            </label>
+                            <label class="field">
+                              <span>Alto</span>
+                              <input type="range" min="40" max="600" [value]="element.size.height" (input)="updateSelectedSize('height', $any($event.target).value)" />
+                            </label>
+                          }
+
+                          @if (section.id === 'content') {
+                            @if (element.type === 'character') {
+                              <label class="field">
+                                <span>Nombre</span>
+                                <input type="text" [value]="contentLabel(element, 'nombre')" (input)="updateSelectedContent('nombre', $any($event.target).value)" />
+                              </label>
+                              <label class="field">
+                                <span>Rol</span>
+                                <input type="text" [value]="contentLabel(element, 'rol')" (input)="updateSelectedContent('rol', $any($event.target).value)" />
+                              </label>
+                              <label class="field">
+                                <span>Expresión</span>
+                                <input type="text" [value]="contentLabel(element, 'expresion')" (input)="updateSelectedContent('expresion', $any($event.target).value)" />
+                              </label>
+                              <label class="field">
+                                <span>Estado emocional</span>
+                                <input type="text" [value]="contentLabel(element, 'estadoEmocional')" (input)="updateSelectedContent('estadoEmocional', $any($event.target).value)" />
+                              </label>
+                              <label class="field">
+                                <span>Diálogo</span>
+                                <textarea rows="4" [value]="contentText(element, 'dialogo')" (input)="updateSelectedContent('dialogo', $any($event.target).value)"></textarea>
+                              </label>
+                            } @else if (element.type === 'question') {
+                              <label class="field">
+                                <span>Enunciado</span>
+                                <textarea rows="4" [value]="contentLabel(element, 'enunciado')" (input)="updateSelectedContent('enunciado', $any($event.target).value)"></textarea>
+                              </label>
+                              <div class="property-note">
+                                <strong>Pregunta vinculada</strong>
+                                <p>{{ escenarioSeleccionado()!.pregunta?.enunciado || 'Crea la pregunta principal en la pestaña Decisiones.' }}</p>
+                              </div>
+                            } @else if (isTextBubble(element)) {
+                              <label class="field">
+                                <span>Texto de la nube</span>
+                                <textarea
+                                  rows="5"
+                                  maxlength="500"
+                                  [value]="textBubbleDraft()"
+                                  (input)="updateTextBubbleContent($any($event.target).value)"
+                                ></textarea>
+                              </label>
+                              <p class="property-hint">{{ textBubbleDraft().length }}/500 caracteres</p>
+                            } @else {
+                              <label class="field">
+                                <span>Contenido</span>
+                                <textarea rows="4" [value]="contentText(element) || contentText(element, 'mensaje') || contentLabel(element, 'nombre')" (input)="updateSelectedContent(element.type === 'feedback' ? 'mensaje' : contentText(element) ? 'texto' : 'nombre', $any($event.target).value)"></textarea>
+                              </label>
+                              @if (selectedElementIsBackground()) {
+                                <div class="property-note">
+                                  <strong>Fondo base del escenario</strong>
+                                  <p>Este elemento controla el ambiente del lienzo. Al limpiarlo se restaura el fondo base y se quita la imagen aplicada.</p>
+                                </div>
+                                <button class="siep-btn-secondary property-action" type="button" (click)="clearSelectedBackground()">
+                                  Limpiar fondo
+                                </button>
+                              }
+                            }
+                          }
+
+                          @if (section.id === 'advanced') {
+                            <div class="property-list">
+                              <div><span>X</span><strong>{{ element.position.x }}%</strong></div>
+                              <div><span>Y</span><strong>{{ element.position.y }}%</strong></div>
+                              <div><span>Bloqueado</span><strong>{{ element.locked ? 'Si' : 'No' }}</strong></div>
+                            </div>
+                          }
+                        </div>
+                      }
+                    </section>
+                  }
+                </div>
+              } @else {
+                <div class="panel-empty panel-empty--large">
+                  <strong>Selecciona un elemento</strong>
+                  <p>Haz clic sobre un personaje, texto, objeto o pregunta para editar sus propiedades aqui.</p>
+                </div>
+              }
+            </div>
+          </aside>
+        </section>
+
+        <!-- Botón flotante para abrir drawer de escenarios -->
+        <button
+          class="scenarios-drawer-toggle"
+          type="button"
+          (click)="toggleScenariosDrawer()"
+          [class.scenarios-drawer-toggle--open]="scenariosDrawerOpen()"
+          [attr.aria-expanded]="scenariosDrawerOpen()"
+          aria-label="Panel de escenarios"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <rect x="1" y="3" width="14" height="2" rx="1" fill="currentColor"/>
+            <rect x="1" y="7" width="10" height="2" rx="1" fill="currentColor"/>
+            <rect x="1" y="11" width="12" height="2" rx="1" fill="currentColor"/>
+          </svg>
+          <span>Escenas</span>
+          <span class="scenarios-drawer-toggle__count">{{ escenarios().length }}</span>
+        </button>
+
+        <!-- Backdrop del drawer de escenarios -->
+        @if (scenariosDrawerOpen()) {
+          <button
+            class="scenarios-drawer-backdrop"
+            type="button"
+            aria-label="Cerrar panel de escenarios"
+            (click)="closeScenariosDrawer()"
+          ></button>
+        }
+
+        <!-- Drawer lateral de escenarios -->
+        <aside
+          class="scenarios-drawer"
+          [class.scenarios-drawer--open]="scenariosDrawerOpen()"
+          aria-label="Navegación de escenarios"
+        >
+          <div class="scenarios-drawer__header">
+            <div>
+              <p class="panel__eyebrow">Escenarios</p>
+              <h3>Navegación rápida</h3>
+            </div>
+            <button
+              class="scene-drawer__close"
+              type="button"
+              aria-label="Cerrar panel de escenarios"
+              (click)="closeScenariosDrawer()"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="scenarios-drawer__body">
+            @for (esc of escenarios(); track esc.id) {
+              <article
+                class="scenario-chip"
+                [class.scenario-chip--active]="escenarioSeleccionado()!.id === esc.id"
+                (click)="selectEscenario(esc.id); closeScenariosDrawer()"
+              >
+                <div class="scenario-chip__thumb" [ngStyle]="scenarioThumbStyle(esc)"></div>
+                <div class="scenario-chip__meta">
+                  <span>E{{ esc.orden }}</span>
+                  <strong>{{ esc.titulo }}</strong>
+                </div>
+                <div class="scenario-chip__footer">
+                  <app-status-badge
+                    variant="status"
+                    [status]="currentScenarioStatusVariant(esc)"
+                    [label]="currentScenarioStatusLabel(esc)"
+                  />
+                  <button
+                    class="scenario-chip__delete"
+                    type="button"
+                    [disabled]="!canDeleteScenario(esc) || deletingScenario()"
+                    [title]="deleteScenarioBlockedReason(esc) || 'Eliminar escena'"
+                    (click)="openDeleteScenarioDialog(esc.id, $event)"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </article>
+            }
+          </div>
+
+          <div class="scenarios-drawer__footer">
+            <button
+              class="siep-btn-primary"
+              type="button"
+              [disabled]="saving()"
+              (click)="createScenario()"
+            >
+              + Nueva escena
+            </button>
+          </div>
+        </aside>
+      } @else if (workspace() === 'decisions') {
+        <section class="decision-layout">
+          <aside class="panel decision-panel">
+            <div class="panel__header">
+              <div>
+                <p class="panel__eyebrow">Preguntas</p>
+                <h3>Escenas del caso</h3>
+              </div>
+              <span class="panel__helper">Selecciona una escena para trabajar su decisión.</span>
+            </div>
+
+            <div class="decision-scenario-list">
+              @for (esc of escenarios(); track esc.id) {
+                <button
+                  class="decision-scenario-card"
+                  [class.decision-scenario-card--active]="escenarioSeleccionado()!.id === esc.id"
+                  type="button"
+                  (click)="selectEscenario(esc.id)"
+                >
+                  <strong>E{{ esc.orden }} · {{ esc.titulo }}</strong>
+                  <span>{{ esc.pregunta?.enunciado || 'Sin pregunta creada' }}</span>
+                </button>
+              }
+            </div>
+
+            <section class="decision-question-editor">
+              <label class="field">
+                <span>Enunciado</span>
+                <textarea rows="5" [value]="questionDraft()" (input)="updateQuestionDraft($any($event.target).value)"></textarea>
+              </label>
+              <label class="field">
+                <span>Puntaje máximo</span>
+                <input type="number" [value]="questionScoreDraft()" (input)="updateQuestionScoreDraft($any($event.target).value)" />
+              </label>
+              <button class="siep-btn-primary" type="button" (click)="saveQuestion()">Guardar pregunta</button>
+            </section>
+          </aside>
+
+          <section class="panel decision-panel">
+            <div class="panel__header">
+              <div>
+                <p class="panel__eyebrow">Opciones</p>
+                <h3>Editor de respuestas</h3>
+              </div>
+              <span class="panel__helper">Define texto, puntaje y ruta de cada opción.</span>
+            </div>
+
+            @if (escenarioSeleccionado()!.pregunta; as pregunta) {
+              <div class="decision-option-list">
+                @for (op of pregunta.opciones; track op.id) {
+                  <article
+                    class="decision-option-card"
+                    [class.decision-option-card--active]="selectedDecisionOption()?.id === op.id"
+                    (click)="selectDecisionOption(op.id)"
+                  >
+                    <div class="decision-option-card__head">
+                      <strong>Opción {{ op.orden }}</strong>
+                      <app-status-badge
+                        variant="status"
+                        [status]="op.isCorrecta ? 'success' : 'warning'"
+                        [label]="op.isCorrecta ? 'Recomendada' : 'Alternativa'"
+                      />
+                    </div>
+                    <label class="field">
+                      <span>Texto</span>
+                      <input type="text" [value]="op.texto" (input)="updateOptionField(op.id, 'texto', $any($event.target).value)" />
+                    </label>
+                    <div class="decision-option-card__grid">
+                      <label class="field">
+                        <span>Puntaje</span>
+                        <input type="number" [value]="op.puntaje" (input)="updateOptionField(op.id, 'puntaje', toNumber($any($event.target).value))" />
+                      </label>
+                      <label class="field">
+                        <span>Destino</span>
+                        <select [value]="op.escenarioDestinoId || ''" (change)="updateOptionField(op.id, 'escenarioDestinoId', $any($event.target).value)">
+                          <option value="">Siguiente por orden</option>
+                          @for (esc of escenarios(); track esc.id) {
+                            @if (esc.id !== escenarioSeleccionado()!.id) {
+                              <option [value]="esc.id">E{{ esc.orden }} · {{ esc.titulo }}</option>
+                            }
+                          }
+                        </select>
+                      </label>
+                    </div>
+                    <label class="decision-check">
+                      <input type="checkbox" [checked]="op.isCorrecta" (change)="updateOptionField(op.id, 'isCorrecta', $any($event.target).checked)" />
+                      Opción recomendada
+                    </label>
+                    <button class="siep-btn-secondary" type="button" (click)="saveOption(op)">Guardar opción</button>
+                  </article>
+                }
+              </div>
+
+              <section class="decision-create">
+                <div class="decision-create__header">
+                  <strong>Agregar opción</strong>
+                  <span>Nueva respuesta para la escena actual</span>
+                </div>
+                <label class="field">
+                  <span>Texto</span>
+                  <input type="text" [value]="newOptionText()" (input)="updateNewOptionText($any($event.target).value)" />
+                </label>
+                <div class="decision-option-card__grid">
+                  <label class="field">
+                    <span>Puntaje</span>
+                    <input type="number" [value]="newOptionScore()" (input)="updateNewOptionScore($any($event.target).value)" />
+                  </label>
+                  <label class="field">
+                    <span>Destino</span>
+                    <select [value]="newOptionDestino()" (change)="updateNewOptionDestino($any($event.target).value)">
+                      <option value="">Siguiente por orden</option>
+                      @for (esc of escenarios(); track esc.id) {
+                        @if (esc.id !== escenarioSeleccionado()!.id) {
+                          <option [value]="esc.id">E{{ esc.orden }} · {{ esc.titulo }}</option>
+                        }
+                      }
+                    </select>
+                  </label>
+                </div>
+                <label class="decision-check">
+                  <input type="checkbox" [checked]="newOptionCorrect()" (change)="updateNewOptionCorrect($any($event.target).checked)" />
+                  Marcar como recomendada
+                </label>
+                <button class="siep-btn-primary" type="button" (click)="saveOption()">Agregar opción</button>
+              </section>
+            } @else {
+              <div class="panel-empty panel-empty--large">
+                <strong>Crea la pregunta principal</strong>
+                <p>Después podrás agregar opciones, destinos y retroalimentación.</p>
+              </div>
+            }
+          </section>
+
+          <aside class="panel decision-panel">
+            <div class="panel__header">
+              <div>
+                <p class="panel__eyebrow">Retroalimentación</p>
+                <h3>Destino y apoyo pedagógico</h3>
+              </div>
+              <span class="panel__helper">Selecciona una opción para editar su feedback.</span>
+            </div>
+
+            @if (selectedDecisionOption(); as option) {
+              <div class="decision-feedback">
+                <div class="property-note">
+                  <strong>{{ option.texto }}</strong>
+                  <p>
+                    Destino actual:
+                    {{ option.escenarioDestinoId ? 'Escenario definido' : 'Siguiente por orden' }}
+                  </p>
+                </div>
+
+                <label class="field">
+                  <span>Tipo</span>
+                  <select [value]="feedbackTypeDraft()" (change)="updateFeedbackTypeDraft($any($event.target).value)">
+                    <option value="pedagogica">Pedagógica</option>
+                    <option value="correctiva">Correctiva</option>
+                    <option value="refuerzo">Refuerzo</option>
+                  </select>
+                </label>
+
+                <label class="field">
+                  <span>Retroalimentación</span>
+                  <textarea rows="6" [value]="feedbackDraft()" (input)="updateFeedbackDraft($any($event.target).value)"></textarea>
+                </label>
+
+                <label class="field">
+                  <span>Referencia teorica</span>
+                  <input type="text" [value]="feedbackReferenceDraft()" (input)="updateFeedbackReferenceDraft($any($event.target).value)" />
+                </label>
+
+                <button class="siep-btn-primary" type="button" (click)="saveFeedback()">Guardar retroalimentación</button>
+              </div>
+            } @else {
+              <div class="panel-empty panel-empty--large">
+                <strong>Selecciona una opción</strong>
+                <p>Elige una respuesta de la columna central para editar su feedback y su ruta.</p>
+              </div>
+            }
+          </aside>
+        </section>
+      } @else if (workspace() === 'student') {
+        <section class="student-layout">
+          <div class="student-header">
+            <div>
+              <p class="panel__eyebrow">Vista estudiante</p>
+              <h3>{{ escenarioSeleccionado()!.titulo }}</h3>
+              <p>{{ escenarioSeleccionado()!.situacionTexto }}</p>
+            </div>
+            <div class="student-header__actions">
+              <button class="siep-btn-secondary" type="button" (click)="resetStudentPreview()">Reiniciar vista previa</button>
+              <button class="siep-btn-primary" type="button" (click)="setWorkspace('scene')">Volver al editor</button>
+            </div>
+          </div>
+
+          <article class="student-stage" [ngStyle]="canvasBackgroundStyle()">
+            @for (element of orderedElements(); track element.id) {
+              @if (!element.hidden && element.type !== 'background') {
+                @if (element.type === 'character') {
+                  <div class="scene-persona" [ngStyle]="stageElementStyle(element)">
+                    @if (contentText(element, 'dialogo')) {
+                      <div class="scene-persona__bubble" [ngStyle]="characterBubbleStyle(element)">
+                        {{ contentText(element, 'dialogo') }}
+                      </div>
+                    }
+                    <div class="scene-persona__avatar" [ngStyle]="characterAvatarStyle(element)">
+                      <span>{{ characterInitials(element) }}</span>
+                    </div>
+                    <div class="scene-persona__label">
+                      <strong>{{ contentLabel(element, 'nombre') || 'Personaje' }}</strong>
+                      <span>{{ contentLabel(element, 'rol') || 'Rol' }}</span>
+                      <small>{{ contentLabel(element, 'estadoEmocional') || contentLabel(element, 'expresion') }}</small>
+                    </div>
+                  </div>
+                } @else if (element.type === 'question') {
+                  <div class="scene-question" [ngStyle]="combinedElementStyle(element)">
+                    <header>
+                      <span class="scene-question__tag">Pregunta</span>
+                    </header>
+                    <h4>{{ contentLabel(element, 'enunciado') || escenarioSeleccionado()!.pregunta?.enunciado }}</h4>
+                    @if (questionSupportText(element)) {
+                      <p class="scene-question__support">{{ questionSupportText(element) }}</p>
+                    }
+                  </div>
+                } @else if (element.type === 'image') {
+                  <div class="scene-image" [ngStyle]="stageElementStyle(element)">
+                    <img
+                      [src]="elementImageUrl(element)"
+                      [alt]="contentLabel(element, 'nombre') || elementAiType(element) || 'Elemento IA'"
+                      [style.object-fit]="elementObjectFit(element)"
+                    />
+                  </div>
+                } @else if (isTextBubble(element)) {
+                  <div class="canvas-text-bubble scene-note scene-note--nube" [ngStyle]="combinedElementStyle(element)">
+                    <span class="scene-note__tag">{{ noteTypeLabel(element) }}</span>
+                    <p class="canvas-text-bubble__body">{{ textBubbleBody(element) }}</p>
+                  </div>
+                } @else {
+                  <div class="scene-note" [ngStyle]="combinedElementStyle(element)">
+                    <span class="scene-note__tag">{{ noteTypeLabel(element) }}</span>
+                    <strong>{{ noteTitle(element) }}</strong>
+                    <p>{{ noteBody(element) }}</p>
+                  </div>
+                }
+              }
+            }
+          </article>
+
+          @if (escenarioSeleccionado()!.pregunta; as pregunta) {
+            <section class="student-decision-panel">
+              <div class="student-decision-panel__question">
+                <strong>Pregunta principal</strong>
+                <p>{{ pregunta.enunciado }}</p>
+              </div>
+
+              <div class="student-decision-panel__options">
+                @for (op of pregunta.opciones; track op.id) {
+                  <button
+                    class="student-option"
+                    [class.student-option--active]="previewSelectedOption()?.id === op.id"
+                    type="button"
+                    (click)="choosePreviewOption(op.id)"
+                  >
+                    <span>Opción {{ op.orden }}</span>
+                    <strong>{{ op.texto }}</strong>
+                  </button>
+                }
+              </div>
+
+              @if (previewSelectedOption()?.retroalimentacion) {
+                <div class="student-feedback">
+                  <strong>Retroalimentación</strong>
+                  <p>{{ previewSelectedOption()!.retroalimentacion!.mensaje }}</p>
+                </div>
+              }
+            </section>
+          }
+        </section>
+      } @else if (workspace() === 'map') {
+        <section class="flow-layout">
+          <div class="flow-summary">
+            <article class="flow-summary__card">
+              <span>Escenas sin conexión</span>
+              <strong>{{ flowSummaryValue('disconnected') }}</strong>
+            </article>
+            <article class="flow-summary__card">
+              <span>Escenas finales</span>
+              <strong>{{ flowSummaryValue('finals') }}</strong>
+            </article>
+            <article class="flow-summary__card">
+              <span>Rutas definidas</span>
+              <strong>{{ flowSummaryValue('paths') }}</strong>
+            </article>
+          </div>
+
+          @if (flowWarnings().length > 0) {
+            <section class="flow-alerts">
+              <strong>Alertas del flujo</strong>
+              <ul>
+                @for (warning of flowWarnings(); track warning) {
+                  <li>{{ warning }}</li>
+                }
+              </ul>
+            </section>
+          }
+
+          <div class="flow-board">
+            @for (esc of escenarios(); track esc.id) {
+              <article class="flow-node" [class.flow-node--active]="escenarioSeleccionado()!.id === esc.id">
+                <div class="flow-node__head">
+                  <div>
+                    <span>E{{ esc.orden }}</span>
+                    <strong>{{ esc.titulo }}</strong>
+                  </div>
+                  <div class="flow-node__badges">
+                    @if (escenarios()[0].id === esc.id) {
+                      <app-status-badge variant="status" status="success" label="Inicio" />
+                    }
+                    @if (esc.isFinal) {
+                      <app-status-badge variant="status" status="inactive" label="Final" />
+                    }
+                  </div>
+                </div>
+
+                <div class="flow-node__meta">
+                  <span>Entradas: {{ incomingConnections(esc) }}</span>
+                  <span>Salidas: {{ outgoingConnections(esc) }}</span>
+                </div>
+
+                <div class="flow-node__links">
+                  @for (conexion of editor()!.conexiones; track conexion.opcionId) {
+                    @if (conexion.origenEscenarioId === esc.id) {
+                      <div class="flow-link">
+                        <div class="flow-link__origin">
+                          <strong>{{ conexion.opcionTexto }}</strong>
+                          <span>sale de E{{ conexion.origenOrden }}</span>
+                        </div>
+                        <div class="flow-link__destination">
+                          <app-status-badge
+                            variant="status"
+                            [status]="destinoBadgeStatus(conexion.tipo)"
+                            [label]="destinoBadgeLabel(conexion.tipo)"
+                          />
+                          <strong>{{ conexion.destinoOrden ? 'E' + conexion.destinoOrden : 'Fin de simulación' }}</strong>
+                        </div>
+                      </div>
+                    }
+                  }
+                </div>
+              </article>
+            }
+          </div>
+        </section>
+      }
+    }
+  }
+</section>

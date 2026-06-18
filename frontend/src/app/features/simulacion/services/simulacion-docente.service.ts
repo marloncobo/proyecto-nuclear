@@ -1,0 +1,397 @@
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable } from 'rxjs';
+import { environment } from '../../../../environments/environment';
+import {
+  CasoEditor,
+} from '../models/docente/caso-editor.model';
+import {
+  AiAsset,
+  AiAssetStyle,
+  AiAssetType,
+  DocenteAsset,
+  DocenteAssetType,
+  AiAssetVisibleType,
+} from '../models/docente/ai-asset.model';
+import {
+  CasoDocente,
+  CasoDocenteDetalle,
+  PublicarCasoResponse,
+} from '../models/docente/caso-docente.model';
+import { CasoPreview } from '../models/docente/caso-preview.model';
+import { EscenarioDocente } from '../models/docente/escenario-docente.model';
+import { EvidenciaDocente } from '../models/docente/evidencia-docente.model';
+import {
+  GenerarCasoIaPayload,
+  GenerarCasoIaResponse,
+} from '../models/docente/generar-caso-ia.model';
+import { RevisionSesionDocente } from '../models/docente/revision-sesion-docente.model';
+import { RubricaCriterio } from '../models/docente/rubrica-criterio.model';
+import { SesionEvidencia } from '../models/docente/sesion-evidencia.model';
+
+@Injectable({ providedIn: 'root' })
+export class SimulacionDocenteService {
+  private readonly http = inject(HttpClient);
+  private readonly casosUrl = `${environment.apiUrl}/simulacion/docente/casos`;
+  private readonly docenteUrl = `${environment.apiUrl}/simulacion/docente`;
+
+  listarCasos() {
+    return this.http.get<CasoDocente[]>(this.casosUrl);
+  }
+
+  listarBibliotecaCasos() {
+    return this.http.get<CasoDocente[]>(`${this.casosUrl}/biblioteca`);
+  }
+
+  obtenerCaso(casoId: string) {
+    return this.http.get<CasoDocenteDetalle>(`${this.casosUrl}/${casoId}`);
+  }
+
+  obtenerEditorCaso(casoId: string) {
+    return this.http.get<CasoEditor>(`${this.casosUrl}/${casoId}/editor`);
+  }
+
+  crearCaso(payload: {
+    titulo: string;
+    descripcion?: string;
+    objetivoAprendizaje?: string;
+    tiempoMaximoMinutos?: number;
+  }) {
+    return this.http.post<CasoDocente>(this.casosUrl, payload);
+  }
+
+  actualizarCaso(
+    casoId: string,
+    payload: {
+      titulo?: string;
+      descripcion?: string;
+      objetivoAprendizaje?: string;
+      tiempoMaximoMinutos?: number;
+    },
+  ) {
+    return this.http.patch<CasoDocente>(`${this.casosUrl}/${casoId}`, payload);
+  }
+
+  eliminarBorrador(casoId: string) {
+    return this.http.delete<{ message: string }>(`${this.casosUrl}/${casoId}`);
+  }
+
+  generarCasoConIa(payload: GenerarCasoIaPayload) {
+    return this.http.post<GenerarCasoIaResponse>(
+      `${this.casosUrl}/generar`,
+      payload,
+    );
+  }
+
+  listarEscenarios(casoId: string) {
+    return this.http.get<EscenarioDocente[]>(
+      `${this.docenteUrl}/casos/${casoId}/escenarios`,
+    );
+  }
+
+  crearEscenario(
+    casoId: string,
+    payload: {
+      orden: number;
+      titulo: string;
+      situacionTexto: string;
+      fondoCodigo: string;
+      isFinal?: boolean;
+    },
+  ) {
+    return this.http.post<EscenarioDocente>(
+      `${this.docenteUrl}/casos/${casoId}/escenarios`,
+      payload,
+    );
+  }
+
+  actualizarEscenario(
+    escenarioId: string,
+    payload: {
+      orden?: number;
+      titulo?: string;
+      situacionTexto?: string;
+      fondoCodigo?: string;
+      isFinal?: boolean;
+    },
+  ) {
+    return this.http.patch<EscenarioDocente>(
+      `${this.docenteUrl}/escenarios/${escenarioId}`,
+      payload,
+    );
+  }
+
+  actualizarLayoutEscenario(
+    escenarioId: string,
+    payload: {
+      version?: number;
+      elements: unknown[];
+    },
+  ) {
+    return this.http.patch<EscenarioDocente>(
+      `${this.docenteUrl}/escenarios/${escenarioId}/layout`,
+      payload,
+    );
+  }
+
+  duplicarEscenario(escenarioId: string) {
+    return this.http.post<EscenarioDocente>(
+      `${this.docenteUrl}/escenarios/${escenarioId}/duplicate`,
+      {},
+    );
+  }
+
+  eliminarEscenario(casoId: string, escenarioId: string) {
+    return this.http.delete<{
+      success: boolean;
+      deletedScenarioId: string;
+      remainingScenarios: EscenarioDocente[];
+    }>(`${this.docenteUrl}/casos/${casoId}/escenarios/${escenarioId}`);
+  }
+
+  generarAiAsset(payload: {
+    casoId: string;
+    escenarioId: string;
+    tipo: AiAssetType;
+    visibleType?: AiAssetVisibleType;
+    descripcion: string;
+    estilo: AiAssetStyle;
+  }) {
+    return this.http.post<AiAsset>(`${environment.apiUrl}/ai-assets/generate`, payload);
+  }
+
+  listarAiAssetsCaso(casoId: string) {
+    return this.http.get<AiAsset[]>(`${environment.apiUrl}/ai-assets/caso/${casoId}`);
+  }
+
+  subirDocenteAsset(payload: {
+    casoId: string;
+    nombre: string;
+    tipo: DocenteAssetType;
+    file: File;
+  }) {
+    const formData = new FormData();
+    formData.append('casoId', payload.casoId);
+    formData.append('nombre', payload.nombre);
+    formData.append('tipo', payload.tipo);
+    formData.append('file', payload.file);
+
+    return this.http.post<DocenteAsset>(`${environment.apiUrl}/ai-assets/upload`, formData);
+  }
+
+  listarDocenteAssetsCaso(casoId: string) {
+    return this.http.get<DocenteAsset[]>(
+      `${environment.apiUrl}/ai-assets/docente/caso/${casoId}`,
+    );
+  }
+
+  insertarAiAssetEnEscenario(
+    assetId: string,
+    escenarioId: string,
+    visibleType?: AiAssetVisibleType,
+  ) {
+    return this.http.post<AiAsset>(
+      `${environment.apiUrl}/ai-assets/${assetId}/insertar-en-escenario`,
+      { escenarioId, visibleType },
+    );
+  }
+
+  crearPregunta(
+    escenarioId: string,
+    payload: { enunciado: string; tipo?: string; puntajeMaximo?: number; orden?: number },
+  ) {
+    return this.http.post(`${this.docenteUrl}/escenarios/${escenarioId}/pregunta`, payload);
+  }
+
+  actualizarPregunta(
+    preguntaId: string,
+    payload: { enunciado?: string; tipo?: string; puntajeMaximo?: number; orden?: number },
+  ) {
+    return this.http.patch(`${this.docenteUrl}/preguntas/${preguntaId}`, payload);
+  }
+
+  eliminarPregunta(preguntaId: string) {
+    return this.http.delete<{ message: string }>(
+      `${this.docenteUrl}/preguntas/${preguntaId}`,
+    );
+  }
+
+  crearOpcion(
+    preguntaId: string,
+    payload: {
+      texto: string;
+      orden: number;
+      puntaje: number;
+      isCorrecta?: boolean;
+      escenarioDestinoId?: string | null;
+    },
+  ) {
+    return this.http.post(`${this.docenteUrl}/preguntas/${preguntaId}/opciones`, payload);
+  }
+
+  actualizarOpcion(
+    opcionId: string,
+    payload: {
+      texto?: string;
+      orden?: number;
+      puntaje?: number;
+      isCorrecta?: boolean;
+      escenarioDestinoId?: string | null;
+    },
+  ) {
+    return this.http.patch(`${this.docenteUrl}/opciones/${opcionId}`, payload);
+  }
+
+  eliminarOpcion(opcionId: string) {
+    return this.http.delete(`${this.docenteUrl}/opciones/${opcionId}`);
+  }
+
+  crearRetroalimentacion(
+    opcionId: string,
+    payload: {
+      mensaje: string;
+      tipo?: string;
+      referenciaTeorica?: string;
+    },
+  ) {
+    return this.http.post(
+      `${this.docenteUrl}/opciones/${opcionId}/retroalimentacion`,
+      payload,
+    );
+  }
+
+  actualizarRetroalimentacion(
+    retroalimentacionId: string,
+    payload: {
+      mensaje?: string;
+      tipo?: string;
+      referenciaTeorica?: string;
+    },
+  ) {
+    return this.http.patch(
+      `${this.docenteUrl}/retroalimentaciones/${retroalimentacionId}`,
+      payload,
+    );
+  }
+
+  eliminarRetroalimentacion(retroalimentacionId: string) {
+    return this.http.delete(
+      `${this.docenteUrl}/retroalimentaciones/${retroalimentacionId}`,
+    );
+  }
+
+  obtenerPreview(casoId: string) {
+    return this.http.get<CasoPreview>(`${this.casosUrl}/${casoId}/preview`);
+  }
+
+  publicarCaso(casoId: string) {
+    return this.http.post<PublicarCasoResponse>(
+      `${this.casosUrl}/${casoId}/publicar`,
+      {},
+    );
+  }
+
+  listarRubrica(casoId: string) {
+    return this.http.get<RubricaCriterio[]>(`${this.casosUrl}/${casoId}/rubrica`);
+  }
+
+  crearCriterioRubrica(
+    casoId: string,
+    payload: {
+      criterio: string;
+      descripcion: string;
+      nivelEsperado?: string;
+      peso?: number | null;
+      orden?: number;
+    },
+  ) {
+    return this.http.post<RubricaCriterio>(
+      `${this.casosUrl}/${casoId}/rubrica`,
+      payload,
+    );
+  }
+
+  actualizarCriterioRubrica(
+    criterioId: string,
+    payload: {
+      criterio?: string;
+      descripcion?: string;
+      nivelEsperado?: string;
+      peso?: number | null;
+      orden?: number;
+    },
+  ) {
+    return this.http.patch<RubricaCriterio>(
+      `${this.casosUrl}/rubrica/${criterioId}`,
+      payload,
+    );
+  }
+
+  eliminarCriterioRubrica(criterioId: string) {
+    return this.http.delete<{ message: string }>(
+      `${this.casosUrl}/rubrica/${criterioId}`,
+    );
+  }
+
+  listarEvidencias(): Observable<EvidenciaDocente[]>;
+  listarEvidencias(casoId: string): Observable<SesionEvidencia[]>;
+  listarEvidencias(casoId?: string) {
+    if (casoId) {
+      return this.http.get<SesionEvidencia[]>(`${this.casosUrl}/${casoId}/sesiones`);
+    }
+    return this.http.get<EvidenciaDocente[]>(`${this.docenteUrl}/evidencias`);
+  }
+
+  obtenerRevisionSesion(sesionId: string) {
+    return this.http.get<RevisionSesionDocente>(
+      `${this.docenteUrl}/sesiones/${sesionId}/revision`,
+    );
+  }
+
+  guardarRetroalimentacionGeneral(sesionId: string, mensaje: string) {
+    return this.http.patch<RevisionSesionDocente>(
+      `${this.docenteUrl}/sesiones/${sesionId}/retroalimentacion-general`,
+      { mensaje },
+    );
+  }
+
+  descargarReporteSesion(sesionId: string) {
+    return this.http.get(`${this.docenteUrl}/sesiones/${sesionId}/reporte.csv`, {
+      responseType: 'blob',
+    });
+  }
+
+  autorizarReintento(casoId: string, estudianteId: string, motivo?: string) {
+    return this.http.post<{ message: string }>(
+      `${this.docenteUrl}/casos/${casoId}/estudiantes/${estudianteId}/reintentos/autorizar`,
+      { motivo: motivo?.trim() || undefined },
+    );
+  }
+
+  listarGruposAsignados(casoId: string) {
+    return this.http.get<CasoGrupoAsignado[]>(
+      `${this.casosUrl}/${casoId}/grupos`,
+    );
+  }
+
+  asignarGrupos(casoId: string, grupoIds: string[]) {
+    return this.http.post<CasoGrupoAsignado[]>(
+      `${this.casosUrl}/${casoId}/grupos`,
+      { grupoIds },
+    );
+  }
+
+  quitarAsignacion(casoId: string, grupoId: string) {
+    return this.http.delete<{ message: string }>(
+      `${this.casosUrl}/${casoId}/grupos/${grupoId}`,
+    );
+  }
+}
+
+export interface CasoGrupoAsignado {
+  grupoId: string;
+  nombre: string | null;
+  isActive: boolean | null;
+  asignadoPor: string;
+  createdAt: string;
+}

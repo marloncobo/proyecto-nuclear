@@ -1,0 +1,89 @@
+﻿<section class="siep-page evidencias">
+  <div class="profesor-page-hero">
+    <p class="profesor-page-hero__kicker" aria-hidden="true">MENTORA · EVIDENCIAS</p>
+    <app-page-header
+      title="Evidencias de aprendizaje"
+      subtitle="Consulta intentos finalizados, decisiones y resultados de tus estudiantes en MENTORA."
+      icon="🌿"
+    />
+  </div>
+
+  @if (errorMessage()) {
+    <app-alert-message [message]="errorMessage()!" type="error" />
+  }
+
+  @if (loading()) {
+    <app-loading-state message="Cargando evidencias..." />
+  } @else if (evidencias().length === 0) {
+    <app-empty-state
+      title="No hay intentos finalizados registrados"
+      message="Cuando tus estudiantes finalicen casos asignados a tus grupos, sus intentos aparecerán aquí para revisión."
+      icon="🌿"
+      actionLabel="Ir a asignaciones"
+      (actionClick)="irAAsignaciones()"
+    />
+  } @else {
+    <p class="evidencias__count" role="status">
+      {{ evidencias().length }}
+      {{ evidencias().length === 1 ? 'intento registrado' : 'intentos registrados' }}
+    </p>
+
+    <ul class="evidencias__list" aria-label="Evidencias de intentos">
+      @for (evidencia of evidencias(); track evidencia.sesionId) {
+        <li>
+          <article class="evidencia-card">
+            <span class="evidencia-card__avatar" aria-hidden="true">
+              {{ evidencia.estudianteNombre.charAt(0).toUpperCase() }}
+            </span>
+
+            <div class="evidencia-card__main">
+              <div class="evidencia-card__title-row">
+                <h2>{{ evidencia.casoTitulo }}</h2>
+                <app-status-badge
+                  variant="status"
+                  [status]="estadoBadge(evidencia.estado)"
+                  [label]="estadoLabel(evidencia.estado)"
+                />
+              </div>
+
+              <p class="evidencia-card__estudiante">
+                <strong>{{ evidencia.estudianteNombre }}</strong>
+                <span>{{ evidencia.estudianteEmail }}</span>
+              </p>
+
+              <dl class="evidencia-card__meta">
+                <div>
+                  <dt>Inicio</dt>
+                  <dd>{{ evidencia.fechaInicio | date: 'medium' }}</dd>
+                </div>
+                <div>
+                  <dt>Finalización</dt>
+                  <dd>
+                    @if (evidencia.fechaFinalizacion) {
+                      {{ evidencia.fechaFinalizacion | date: 'medium' }}
+                    } @else {
+                      —
+                    }
+                  </dd>
+                </div>
+                <div>
+                  <dt>Nota</dt>
+                  <dd>{{ evidencia.puntajeTotal }}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div class="evidencia-card__actions">
+              <a
+                class="siep-btn-primary"
+                [routerLink]="['/profesor/evidencias', evidencia.sesionId]"
+              >
+                Ver revisión
+              </a>
+            </div>
+          </article>
+        </li>
+      }
+    </ul>
+  }
+</section>

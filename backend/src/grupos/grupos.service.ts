@@ -15,12 +15,25 @@ import { AsignarEstudiantesDto } from './dto/asignar-estudiantes.dto';
 import { CrearGrupoDto } from './dto/crear-grupo.dto';
 import { EstudianteGrupo } from './entities/estudiante-grupo.entity';
 import { Grupo } from './entities/grupo.entity';
+import type {
+  ImportEstudianteItem,
+  ImportarEstudiantesResponse,
+} from './interfaces/importar-estudiantes.interface';
+import type { UploadedImportFile } from './interfaces/uploaded-import-file.interface';
+import { MailService } from '../mail/mail.service';
+import { NotificacionesService } from '../notificaciones/notificaciones.service';
+import {
+  isValidEmail,
+  parseEstudiantesFile,
+} from './utils/parse-estudiantes-file.util';
 
 @Injectable()
 export class GruposService {
   constructor(
     private readonly postgrest: PostgrestService,
     private readonly usuariosService: UsuariosService,
+    private readonly mailService: MailService,
+    private readonly notificacionesService: NotificacionesService,
   ) {}
 
   async create(crearGrupoDto: CrearGrupoDto, currentUser: AuthenticatedUser) {
@@ -30,15 +43,29 @@ export class GruposService {
     );
 
     try {
-      return await this.postgrest.insert<Grupo>(
+      const grupo = await this.postgrest.insert<Grupo>(
         'grupos',
         {
           nombre: crearGrupoDto.nombre,
           descripcion: crearGrupoDto.descripcion ?? null,
+          semestre: crearGrupoDto.semestre ?? null,
           profesorId,
         },
         { select: '*' },
       );
+
+      if (currentUser.role === Role.PROFESOR) {
+        const profesor = await this.usuariosService.findById(currentUser.sub);
+        await this.notificacionesService.crearParaAdmins({
+          tipo: 'GRUPO_CREADO',
+          titulo: 'Nuevo grupo creado',
+          mensaje: `El docente ${profesor.fullName} creó la comunidad académica ${grupo.nombre}.`,
+          entidad_tipo: 'GRUPO',
+          entidad_id: grupo.id,
+        });
+      }
+
+      return grupo;
     } catch (error) {
       this.rethrowConflict(error, 'No fue posible crear el grupo.');
       throw error;
@@ -48,7 +75,6 @@ export class GruposService {
   async findAll(currentUser: AuthenticatedUser): Promise<Grupo[]> {
     if (currentUser.role === Role.ADMIN) {
       return this.postgrest.select<Grupo>('grupos', {
-        filters: { isActive: true },
         order: 'createdAt.desc',
       });
     }
@@ -57,7 +83,6 @@ export class GruposService {
       return this.postgrest.select<Grupo>('grupos', {
         filters: {
           profesorId: currentUser.sub,
-          isActive: true,
         },
         order: 'createdAt.desc',
       });
@@ -106,14 +131,6 @@ export class GruposService {
       }
 
       await this.assertProfesorValido(actualizarGrupoDto.profesorId);
-    }
-
-    if (actualizarGrupoDto.isActive !== undefined) {
-      if (currentUser.role !== Role.ADMIN) {
-        throw new ForbiddenException(
-          'Solo un administrador puede cambiar el estado del grupo.',
-        );
-      }
     }
 
     const payload = this.buildUpdatePayload(actualizarGrupoDto);
@@ -230,6 +247,26 @@ export class GruposService {
     };
   }
 
+  async listAvailableStudents(
+    grupoId: string,
+    currentUser: AuthenticatedUser,
+  ): Promise<UsuarioSeguro[]> {
+    const grupo = await this.findGrupoById(grupoId);
+    this.assertCanManageGrupo(grupo, currentUser);
+
+    const membresias = await this.postgrest.select<EstudianteGrupo>(
+      'estudiante_grupo',
+      {
+        filters: { grupoId },
+      },
+    );
+
+    const asignados = new Set(membresias.map((item) => item.estudianteId));
+    const estudiantes = await this.usuariosService.findActiveStudents();
+
+    return estudiantes.filter((estudiante) => !asignados.has(estudiante.id));
+  }
+
   async listStudents(
     grupoId: string,
     currentUser: AuthenticatedUser,
@@ -253,6 +290,222 @@ export class GruposService {
     }
 
     return estudiantes;
+  }
+
+  async importarEstudiantes(
+    grupoId: string,
+    file: UploadedImportFile,
+    currentUser: AuthenticatedUser,
+  ): Promise<ImportarEstudiantesResponse> {
+    if (!file) {
+      throw new BadRequestException('Debes adjuntar un archivo para importar.');
+    }
+
+    const grupo = await this.findGrupoById(grupoId);
+    this.assertCanManageGrupo(grupo, currentUser);
+
+    if (!grupo.isActive) {
+      throw new BadRequestException(
+        'No se pueden importar estudiantes a un grupo inactivo.',
+      );
+    }
+
+    const rows = parseEstudiantesFile(file.buffer, file.originalname);
+    const response: ImportarEstudiantesResponse = {
+      totalFilas: rows.length,
+      creados: [],
+      existentesAsignados: [],
+      duplicados: [],
+      errores: [],
+      reporteCredenciales: [],
+    };
+
+    const emailsEnArchivo = new Set<string>();
+
+    for (const row of rows) {
+      const fullName = row.fullName.trim();
+      const email = row.email.trim().toLowerCase();
+
+      if (!fullName || !email) {
+        response.errores.push({
+          fullName: fullName || '(sin nombre)',
+          email: email || '(sin correo)',
+          estado: 'error',
+          observacion: `Fila ${row.rowNumber}: nombre y correo son obligatorios.`,
+        });
+        continue;
+      }
+
+      if (fullName.length < 3) {
+        response.errores.push({
+          fullName,
+          email,
+          estado: 'error',
+          observacion: `Fila ${row.rowNumber}: el nombre debe tener al menos 3 caracteres.`,
+        });
+        continue;
+      }
+
+      if (!isValidEmail(email)) {
+        response.errores.push({
+          fullName,
+          email,
+          estado: 'error',
+          observacion: `Fila ${row.rowNumber}: correo con formato invalido.`,
+        });
+        continue;
+      }
+
+      if (emailsEnArchivo.has(email)) {
+        response.duplicados.push({
+          fullName,
+          email,
+          estado: 'duplicado',
+          observacion: `Fila ${row.rowNumber}: correo repetido en el archivo.`,
+        });
+        continue;
+      }
+
+      emailsEnArchivo.add(email);
+
+      try {
+        await this.processImportRow({
+          grupoId,
+          fullName,
+          email,
+          rowNumber: row.rowNumber,
+          response,
+        });
+      } catch (error) {
+        response.errores.push({
+          fullName,
+          email,
+          estado: 'error',
+          observacion:
+            error instanceof Error
+              ? error.message
+              : `Fila ${row.rowNumber}: no fue posible procesar la fila.`,
+        });
+      }
+    }
+
+    const cantidad =
+      response.creados.length + response.existentesAsignados.length;
+
+    if (cantidad > 0) {
+      await this.notificacionesService.crearParaAdmins({
+        tipo: 'ESTUDIANTES_IMPORTADOS',
+        titulo: 'Estudiantes importados',
+        mensaje: `Se importaron ${cantidad} estudiantes a la comunidad académica ${grupo.nombre}.`,
+        entidad_tipo: 'GRUPO',
+        entidad_id: grupo.id,
+      });
+    }
+
+    return response;
+  }
+
+  private async processImportRow(params: {
+    grupoId: string;
+    fullName: string;
+    email: string;
+    rowNumber: number;
+    response: ImportarEstudiantesResponse;
+  }) {
+    const { grupoId, fullName, email, rowNumber, response } = params;
+    const existing = await this.usuariosService.findByEmail(email);
+
+    if (existing) {
+      if (existing.role !== Role.ESTUDIANTE) {
+        response.errores.push({
+          fullName,
+          email,
+          estado: 'error',
+          observacion: `Fila ${rowNumber}: el correo pertenece a un usuario ${existing.role}.`,
+        });
+        return;
+      }
+
+      if (!existing.isActive) {
+        response.errores.push({
+          fullName,
+          email,
+          estado: 'error',
+          observacion: `Fila ${rowNumber}: el estudiante existe pero esta inactivo.`,
+        });
+        return;
+      }
+
+      const yaAsignado = await this.findMembership(grupoId, existing.id);
+      if (yaAsignado) {
+        response.duplicados.push({
+          fullName: existing.fullName,
+          email,
+          estado: 'duplicado',
+          observacion: `Fila ${rowNumber}: el estudiante ya pertenece al grupo.`,
+        });
+        return;
+      }
+
+      await this.postgrest.insert<EstudianteGrupo>(
+        'estudiante_grupo',
+        {
+          grupoId,
+          estudianteId: existing.id,
+        },
+        { select: '*' },
+      );
+
+      const item: ImportEstudianteItem = {
+        fullName: existing.fullName,
+        email,
+        estado: 'existente_asignado',
+        observacion: `Fila ${rowNumber}: estudiante existente asignado al grupo.`,
+      };
+      response.existentesAsignados.push(item);
+      return;
+    }
+
+    const { usuario: created, temporaryPassword } =
+      await this.usuariosService.createEstudianteWithTemporaryPassword(
+        fullName,
+        email,
+      );
+
+    const correoEnviado = await this.mailService.sendWelcomeEmail(
+      created.fullName,
+      created.email,
+      temporaryPassword,
+    );
+
+    await this.postgrest.insert<EstudianteGrupo>(
+      'estudiante_grupo',
+      {
+        grupoId,
+        estudianteId: created.id,
+      },
+      { select: '*' },
+    );
+
+    const item: ImportEstudianteItem = {
+      fullName: created.fullName,
+      email,
+      estado: 'creado',
+      observacion: correoEnviado
+        ? `Fila ${rowNumber}: estudiante creado, asignado al grupo y correo enviado.`
+        : `Fila ${rowNumber}: estudiante creado y asignado al grupo. No se pudo enviar el correo.`,
+      correoEnviado,
+      temporaryPassword: correoEnviado ? undefined : temporaryPassword,
+    };
+
+    response.creados.push(item);
+    response.reporteCredenciales.push({
+      fullName: created.fullName,
+      email,
+      temporaryPassword: correoEnviado ? 'Enviado por correo' : temporaryPassword,
+      estado: 'creado',
+      correoEnviado,
+    });
   }
 
   private async resolveProfesorIdForCreate(
@@ -387,6 +640,10 @@ export class GruposService {
 
     if (actualizarGrupoDto.descripcion !== undefined) {
       payload.descripcion = actualizarGrupoDto.descripcion;
+    }
+
+    if (actualizarGrupoDto.semestre !== undefined) {
+      payload.semestre = actualizarGrupoDto.semestre;
     }
 
     if (actualizarGrupoDto.profesorId !== undefined) {

@@ -1,0 +1,292 @@
+@use '../../../../admin/shared/admin-page-shell' as adminShell;
+
+@include adminShell.admin-page-shell;
+
+// ── Buscador ─────────────────────────────────────────────
+.grupos-search-wrap {
+  margin-bottom: 1.5rem;
+}
+
+.grupos-search-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  max-width: 540px;
+}
+
+.grupos-search-icon {
+  position: absolute;
+  left: 0.9rem;
+  color: #7cb342;
+  pointer-events: none;
+}
+
+.grupos-search-input {
+  width: 100%;
+  padding: 0.68rem 2.5rem 0.68rem 2.4rem;
+  border-radius: 999px;
+  border: 1.5px solid rgba(124, 179, 66, 0.35);
+  background: rgba(255, 255, 255, 0.88);
+  font-family: var(--siep-font-body);
+  font-size: 0.9rem;
+  color: #2f5d34;
+  backdrop-filter: blur(6px);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+  appearance: none;
+
+  &::placeholder { color: #8fa995; }
+
+  &:focus {
+    outline: none;
+    border-color: rgba(124, 179, 66, 0.7);
+    box-shadow: 0 0 0 3px rgba(124, 179, 66, 0.12);
+  }
+
+  &::-webkit-search-cancel-button { display: none; }
+}
+
+.grupos-search-clear {
+  position: absolute;
+  right: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(205, 232, 181, 0.5);
+  color: #5f7368;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: rgba(205, 232, 181, 0.9);
+    color: #2f5d34;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #7cb342;
+    outline-offset: 1px;
+  }
+}
+
+// Sin resultados
+.grupos-no-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: #8fa995;
+
+  svg { opacity: 0.6; }
+
+  p {
+    margin: 0;
+    font-size: 0.88rem;
+    font-style: italic;
+  }
+}
+
+// ── Grilla de comunidades ─────────────────────────────────
+.grupos-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(295px, 1fr));
+  gap: 1.2rem;
+}
+
+// ── Tarjeta de comunidad ──────────────────────────────────
+.comunidad-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 252, 247, 0.92);
+  border: 1px solid rgba(205, 232, 181, 0.65);
+  border-radius: 1.15rem;
+  padding: 1.35rem 1.35rem 1.15rem;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(16, 42, 29, 0.04);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(16, 42, 29, 0.09);
+    border-color: rgba(124, 179, 66, 0.5);
+  }
+
+  &--inactiva {
+    background: rgba(248, 248, 246, 0.75);
+    border-color: rgba(205, 232, 181, 0.35);
+    opacity: 0.88;
+  }
+}
+
+// Barra de acento superior
+.comunidad-card__accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3.5px;
+  background: linear-gradient(
+    90deg,
+    #7cb342 0%,
+    #aed581 55%,
+    rgba(124, 179, 66, 0.15) 100%
+  );
+  border-radius: 1.15rem 1.15rem 0 0;
+
+  .comunidad-card--inactiva & {
+    background: linear-gradient(
+      90deg,
+      rgba(205, 232, 181, 0.5) 0%,
+      rgba(205, 232, 181, 0.18) 100%
+    );
+  }
+}
+
+// Decoración hoja en esquina superior derecha
+.comunidad-card__leaf {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.65rem;
+  pointer-events: none;
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+
+  .comunidad-card:hover & {
+    opacity: 1;
+  }
+}
+
+// Cabecera
+.comunidad-card__head {
+  margin-bottom: 0.85rem;
+  flex: 1;
+}
+
+.comunidad-card__badge-wrap {
+  margin-bottom: 0.55rem;
+}
+
+.comunidad-card__title {
+  margin: 0 0 0.35rem;
+  font-family: var(--siep-font-title);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #2f5d34;
+  line-height: 1.25;
+  padding-right: 2rem; // espacio para la hoja
+}
+
+.comunidad-card__desc {
+  margin: 0;
+  font-size: 0.83rem;
+  color: #5f7368;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.comunidad-card__semester {
+  margin: 0.45rem 0 0;
+  display: inline-flex;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: #f1f8e9;
+  border: 1px solid #cde8b5;
+  color: #2f5d34;
+  font-family: var(--siep-font-title);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+// Metadatos (chips)
+.comunidad-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.comunidad-card__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(205, 232, 181, 0.35);
+  border: 1px solid rgba(124, 179, 66, 0.2);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #5f7368;
+  font-family: var(--siep-font-title);
+
+  &--docente {
+    background: rgba(241, 248, 233, 0.65);
+    border-color: rgba(124, 179, 66, 0.28);
+    color: #2f5d34;
+  }
+}
+
+// Acciones — siempre en columna para evitar cortes de texto
+.comunidad-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  border-top: 1px solid rgba(205, 232, 181, 0.45);
+  padding-top: 0.85rem;
+  margin-top: auto;
+}
+
+.comunidad-card__btn {
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+// Clase utilitaria
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+// ── Responsive ────────────────────────────────────────────
+@media (max-width: 860px) {
+  .grupos-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+
+  .grupos-search-inner {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 540px) {
+  .grupos-grid {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+}

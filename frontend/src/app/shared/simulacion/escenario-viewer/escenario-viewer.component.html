@@ -1,0 +1,75 @@
+<section class="escenario" aria-label="Escena de simulación">
+  <header class="escenario__header">
+    <div class="escenario__titles">
+      <p class="escenario__kicker">Escena del caso</p>
+      <h2 class="escenario__title">{{ escenario.titulo }}</h2>
+    </div>
+
+    <span class="escenario__badge" [attr.title]="escenario.fondoCodigo">
+      <span class="escenario__badge-label">Entorno</span>
+      {{ escenario.fondoCodigo.split('_').join(' ') }}
+    </span>
+  </header>
+
+  <div class="escenario__narrative">
+    <p class="escenario__narrative-label">Situacion actual</p>
+    <p class="escenario__text">{{ escenario.situacionTexto }}</p>
+  </div>
+
+  <div class="escenario__stage-wrap">
+    <p class="escenario__stage-label">Momento de intervención</p>
+
+    <article class="escenario__stage" [ngStyle]="stageBackgroundStyle()">
+      @if (!hasBackgroundImage()) {
+        <div class="escenario__backdrop">
+          <div class="escenario__window"></div>
+          <div class="escenario__sofa"></div>
+          <div class="escenario__table"></div>
+        </div>
+      }
+
+      @for (item of visibleElements(); track item.id) {
+        @if (item.type === 'character') {
+          <div class="stage-character" [ngStyle]="elementStyle(item)">
+            @if (contentText(item, 'dialogo')) {
+              <div class="stage-character__bubble">{{ contentText(item, 'dialogo') }}</div>
+            }
+            <div class="stage-character__avatar" [style.background]="characterGradient(item)"></div>
+            <div class="stage-character__label">
+              <strong>{{ contentLabel(item, 'nombre') || 'Personaje' }}</strong>
+              <span>
+                {{ contentLabel(item, 'rol') || 'Rol' }}
+                @if (contentLabel(item, 'expresion')) {
+                  · {{ contentLabel(item, 'expresion') }}
+                }
+              </span>
+            </div>
+          </div>
+        } @else if (item.type === 'question') {
+          <div class="stage-question" [ngStyle]="elementStyle(item)">
+            <header>
+              <span class="stage-question__tag">Pregunta</span>
+            </header>
+            <h4>{{ contentLabel(item, 'enunciado') || escenario.pregunta.enunciado }}</h4>
+          </div>
+        } @else if (item.type === 'image') {
+          <div class="stage-image" [ngStyle]="elementStyle(item)">
+            <img
+              [src]="elementImageUrl(item)"
+              [alt]="contentLabel(item, 'nombre') || 'Elemento visual'"
+              [style.object-fit]="elementObjectFit(item)"
+            />
+          </div>
+        } @else if (item.type === 'text' || item.type === 'instruction' || item.type === 'feedback') {
+          <div class="stage-note" [ngStyle]="elementStyle(item)">
+            {{ contentText(item) || contentText(item, 'mensaje') }}
+          </div>
+        } @else {
+          <div class="stage-note" [ngStyle]="elementStyle(item)">
+            {{ contentLabel(item, 'nombre') || item.type }}
+          </div>
+        }
+      }
+    </article>
+  </div>
+</section>

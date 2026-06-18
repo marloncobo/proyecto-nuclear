@@ -1,0 +1,152 @@
+<app-admin-ambient />
+
+<header class="topbar topbar--admin">
+  <div class="container topbar__inner">
+    <a routerLink="/admin/dashboard" class="brand">
+      <span class="brand__text">MENTORA · Admin</span>
+    </a>
+    <nav class="nav">
+      <a routerLink="/admin/dashboard" routerLinkActive="active">Dashboard</a>
+      <a routerLink="/admin/usuarios" routerLinkActive="active">Usuarios</a>
+      <a routerLink="/admin/grupos" routerLinkActive="active">Grupos</a>
+      <a routerLink="/admin/casos" routerLinkActive="active">Casos institucionales</a>
+    </nav>
+    @if (authService.user(); as user) {
+      <div class="notifications">
+        <button
+          type="button"
+          class="notifications__trigger"
+          aria-label="Abrir notificaciones"
+          [class.notifications__trigger--active]="notificationsOpen()"
+          (click)="toggleNotifications()"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            class="notifications__icon"
+            fill="none"
+          >
+            <path
+              d="M18 8A6 6 0 0 0 6 8c0 7-3 7-3 9h18c0-2-3-2-3-9Z"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M13.73 21a2 2 0 0 1-3.46 0"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          @if (unreadCount() > 0) {
+            <span class="notifications__badge">{{ unreadCount() }}</span>
+          }
+        </button>
+
+        @if (notificationsOpen()) {
+          <section class="notifications__panel" aria-label="Notificaciones">
+            <div class="notifications__header">
+              <h2>{{ showingArchived() ? 'Notificaciones archivadas' : 'Notificaciones' }}</h2>
+              <div class="notifications__header-actions">
+                @if (showingArchived()) {
+                  <button
+                    type="button"
+                    class="notifications__mark-all"
+                    (click)="verRecientes()"
+                  >
+                    Ver recientes
+                  </button>
+                } @else {
+                  <button
+                    type="button"
+                    class="notifications__mark-all"
+                    [disabled]="unreadCount() === 0"
+                    (click)="marcarTodasComoLeidas()"
+                  >
+                    Marcar todas como leidas
+                  </button>
+                  <button
+                    type="button"
+                    class="notifications__mark-all"
+                    (click)="archivarLeidas()"
+                  >
+                    Archivar leidas
+                  </button>
+                  <button
+                    type="button"
+                    class="notifications__mark-all"
+                    (click)="verArchivadas()"
+                  >
+                    Ver archivadas
+                  </button>
+                }
+              </div>
+            </div>
+
+            @if (hasNotifications()) {
+              <div class="notifications__list">
+                @for (notificacion of notificaciones(); track notificacion.id) {
+                  <article
+                    class="notifications__item"
+                    [class.notifications__item--unread]="!notificacion.leida"
+                  >
+                    <div class="notifications__item-main">
+                      <strong>{{ notificacion.titulo }}</strong>
+                      <p>{{ notificacion.mensaje }}</p>
+                      <time>{{ notificacion.createdAt | date: 'short' }}</time>
+                    </div>
+                    <div class="notifications__actions">
+                      @if (!notificacion.leida) {
+                        <button
+                          type="button"
+                          class="notifications__action"
+                          (click)="marcarComoLeida(notificacion)"
+                        >
+                          Marcar como leida
+                        </button>
+                      }
+                      @if (!showingArchived() && notificacion.leida) {
+                        <button
+                          type="button"
+                          class="notifications__action"
+                          (click)="archivar(notificacion)"
+                        >
+                          Archivar
+                        </button>
+                      }
+                      @if (notificationLink(notificacion); as link) {
+                        <a class="notifications__action" [routerLink]="link">Ver</a>
+                      }
+                    </div>
+                  </article>
+                }
+              </div>
+            } @else {
+              <p class="notifications__empty">
+                {{ showingArchived() ? 'No hay notificaciones archivadas.' : 'No hay notificaciones por ahora.' }}
+              </p>
+            }
+          </section>
+        }
+      </div>
+
+      <div class="user-box">
+        <span class="user-box__avatar">{{ userInitials(user.fullName) }}</span>
+        <div class="user-box__info">
+          <span class="user-box__name">{{ user.fullName }}</span>
+          <span class="user-box__role">{{ user.role }}</span>
+        </div>
+        <button type="button" class="btn btn-secondary btn--small" (click)="logout()">
+          Cerrar sesión
+        </button>
+      </div>
+    }
+  </div>
+</header>
+
+<main class="container main-content admin-main">
+  <router-outlet />
+</main>
